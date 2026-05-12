@@ -11,6 +11,9 @@ __pycache__/
 *.zip
 *_extracted/
 
+# Obisidian 配置
+.obsidian/
+
 # 系统文件
 .DS_Store
 Thumbs.db
