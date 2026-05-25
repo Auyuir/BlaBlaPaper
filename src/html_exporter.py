@@ -101,8 +101,13 @@ def export_html_reports(output_dir, site_title="BlaBlaCutter", output_root=None)
         生成的 HTML 入口文件路径
     """
     output_path = Path(output_dir)
-    html_root = Path(output_root).expanduser() if output_root else output_path / "html"
+    collection_root = Path(output_root).expanduser() if output_root else None
+    report_slug = _get_report_slug(output_path)
+    html_root = collection_root / report_slug if collection_root else output_path / "html"
     html_root.mkdir(parents=True, exist_ok=True)
+    if collection_root:
+        collection_root.mkdir(parents=True, exist_ok=True)
+        (collection_root / ".nojekyll").write_text("", encoding="utf-8")
 
     available_reports = [
         report for report in REPORTS
@@ -136,7 +141,31 @@ def export_html_reports(output_dir, site_title="BlaBlaCutter", output_root=None)
     index_html = _render_index(site_title, available_reports)
     index_path = html_root / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
+
+    if collection_root:
+        collection_index = _render_collection_index(
+            site_title,
+            _collect_paper_sites(collection_root),
+        )
+        (collection_root / "index.html").write_text(collection_index, encoding="utf-8")
+
     return str(index_path)
+
+
+def _get_report_slug(output_path):
+    info_data = _read_info_json(output_path / "info.json")
+    raw_slug = info_data.get("index") if info_data else None
+    slug = _slugify(str(raw_slug or output_path.name))
+    return slug or "report"
+
+
+def _read_info_json(path):
+    try:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return {}
 
 
 def _copy_static_assets(output_path, html_root):
@@ -157,6 +186,35 @@ def _copy_static_assets(output_path, html_root):
         shutil.copy2(info_source, html_root / "info.json")
 
     (html_root / ".nojekyll").write_text("", encoding="utf-8")
+
+
+def _collect_paper_sites(collection_root):
+    papers = []
+    for child in sorted(collection_root.iterdir()):
+        if not child.is_dir():
+            continue
+        if not (child / "index.html").exists():
+            continue
+        if not (child / "info.json").exists():
+            continue
+
+        info_data = _read_info_json(child / "info.json")
+        title = info_data.get("paper_title") or child.name.replace("-", " ").title()
+        description = info_data.get("description") or ""
+        metadata = info_data.get("metadata") or {}
+        meta_parts = []
+        for key in ("venue", "year"):
+            value = metadata.get(key)
+            if value:
+                meta_parts.append(str(value))
+
+        papers.append({
+            "slug": child.name,
+            "title": title,
+            "description": description,
+            "meta": " · ".join(meta_parts),
+        })
+    return papers
 
 
 def _extract_title(markdown_text):
@@ -559,6 +617,43 @@ def _render_index(site_title, nav_reports):
   </main>
 </body>
 </html>
+	"""
+
+
+def _render_collection_index(site_title, papers):
+    if papers:
+        links = "\n".join(
+            '<a class="report-card paper-card" href="'
+            + html.escape(paper["slug"], quote=True)
+            + '/index.html">'
+            + f'<span>{html.escape(paper["title"])}</span>'
+            + (f'<small>{html.escape(paper["meta"])}</small>' if paper["meta"] else "")
+            + (f'<p>{html.escape(paper["description"])}</p>' if paper["description"] else "")
+            + "</a>"
+            for paper in papers
+        )
+    else:
+        links = '<p class="muted">暂无已发布论文</p>'
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(site_title)}</title>
+  <style>{_CSS}</style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">{html.escape(site_title)}</span>
+    <span class="page-title">Paper Library</span>
+  </header>
+  <main class="index">
+    <h1>{html.escape(site_title)} 论文库</h1>
+    <div class="report-grid">{links}</div>
+  </main>
+</body>
+</html>
 """
 
 
@@ -793,10 +888,16 @@ figure em {
   display: block;
   font-weight: 700;
 }
-.report-card small {
-  color: var(--muted);
-}
-.muted { color: var(--muted); }
+	.report-card small {
+	  color: var(--muted);
+	}
+	.paper-card p {
+	  margin: 10px 0 0;
+	  color: var(--muted);
+	  font-size: 14px;
+	  line-height: 1.55;
+	}
+	.muted { color: var(--muted); }
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 190px minmax(0, 1fr); }
   .toc { display: none; }
