@@ -82,8 +82,14 @@ python main.py /path/to/paper.pdf
 # 生成报告的同时导出 HTML 网页
 python main.py /path/to/paper.pdf --html
 
+# 生成 GitHub Pages 可直接发布的静态目录 docs/
+python main.py /path/to/paper.pdf --pages-dir docs
+
 # 已有 Markdown 报告，只导出 HTML
 python main.py /path/to/outputs/paper-title --html-only
+
+# 已有 Markdown 报告，直接刷新 GitHub Pages 静态目录
+python main.py /path/to/outputs/paper-title --html-only --pages-dir docs
 ```
 
 输出在 `outputs/` 目录下：
@@ -98,10 +104,43 @@ outputs/your-paper-title/
     ├── index.html
     ├── paper_notes/
     ├── eli5_notes/
-    └── figs_notes/
+    ├── figs_notes/
+    └── images/
 ```
 
 双击 `html/index.html` 即可在浏览器中查看。
+
+### 发布到 GitHub Pages
+
+项目已内置 GitHub Pages 工作流：`.github/workflows/pages.yml`。最简单的发布方式是把生成好的静态站点放到 `docs/`，然后 push 到 GitHub：
+
+```bash
+python main.py /path/to/paper.pdf --pages-dir docs
+git add docs .github/workflows/pages.yml
+git commit -m "publish paper report"
+git push
+```
+
+第一次使用时，在 GitHub 仓库里进入 `Settings -> Pages`，把 Source 设为 `GitHub Actions`。之后每次更新 `docs/` 并 push，GitHub Actions 会自动发布静态页面。
+
+生成后的 `docs/` 结构如下：
+
+```
+docs/
+├── .nojekyll
+├── index.html
+├── info.json
+├── images/
+├── paper_notes/
+├── eli5_notes/
+└── figs_notes/
+```
+
+如果已经有 `outputs/your-paper-title/`，不需要重新跑 LLM，直接执行：
+
+```bash
+python main.py outputs/your-paper-title --html-only --pages-dir docs
+```
 
 ---
 

@@ -5,6 +5,7 @@ import html
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 
 
@@ -87,30 +88,35 @@ def _llm_review_html(html_content, md_name):
 
 
 
-def export_html_reports(output_dir, site_title="BlaBlaCutter"):
+def export_html_reports(output_dir, site_title="BlaBlaCutter", output_root=None):
     """
     为输出目录中的报告生成 HTML 页面。
 
     Args:
         output_dir: 报告输出目录，包含 paper_notes.md / ELI5_notes.md / figs_notes.md
         site_title: 页面左上角显示的站点标题
+        output_root: 可选的静态站点根目录。传入 docs 时可直接用于 GitHub Pages。
 
     Returns:
         生成的 HTML 入口文件路径
     """
     output_path = Path(output_dir)
-    html_root = output_path / "html"
+    html_root = Path(output_root).expanduser() if output_root else output_path / "html"
     html_root.mkdir(parents=True, exist_ok=True)
 
     available_reports = [
         report for report in REPORTS
         if (output_path / report[0]).exists()
     ]
+    if not available_reports:
+        raise FileNotFoundError(f"未找到可导出的 Markdown 报告: {output_path}")
+
+    _copy_static_assets(output_path, html_root)
 
     for md_name, route, label in available_reports:
         markdown_text = (output_path / md_name).read_text(encoding="utf-8")
         page_title = _extract_title(markdown_text) or label
-        body_html, toc = _markdown_to_html(markdown_text, asset_prefix="../../")
+        body_html, toc = _markdown_to_html(markdown_text, asset_prefix="../")
         body_html = _llm_review_html(body_html, md_name)
         page_dir = html_root / route
         page_dir.mkdir(parents=True, exist_ok=True)
@@ -131,6 +137,26 @@ def export_html_reports(output_dir, site_title="BlaBlaCutter"):
     index_path = html_root / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
     return str(index_path)
+
+
+def _copy_static_assets(output_path, html_root):
+    """复制 GitHub Pages 静态站点需要的图片和元数据。"""
+    images_source = output_path / "images"
+    if images_source.is_dir():
+        images_target = html_root / "images"
+        images_target.mkdir(parents=True, exist_ok=True)
+        for source in images_source.iterdir():
+            target = images_target / source.name
+            if source.is_dir():
+                shutil.copytree(source, target, dirs_exist_ok=True)
+            elif source.is_file():
+                shutil.copy2(source, target)
+
+    info_source = output_path / "info.json"
+    if info_source.exists():
+        shutil.copy2(info_source, html_root / "info.json")
+
+    (html_root / ".nojekyll").write_text("", encoding="utf-8")
 
 
 def _extract_title(markdown_text):

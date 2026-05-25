@@ -38,18 +38,30 @@ def main():
         action="store_true",
         help="只把已有 Markdown 报告导出为 HTML，不重新分析论文",
     )
+    parser_cli.add_argument(
+        "--pages-dir",
+        help="额外生成 GitHub Pages 可直接发布的静态目录，例如 docs",
+    )
     args = parser_cli.parse_args()
 
     input_path = os.path.expanduser(args.input_path)
+    pages_dir = os.path.expanduser(args.pages_dir) if args.pages_dir else None
+    should_export_html = args.html or args.html_only or bool(pages_dir)
     if not os.path.exists(input_path):
         print(f"[错误] 输入路径不存在: {input_path}")
         sys.exit(1)
 
-    if (args.html or args.html_only) and is_existing_report_dir(input_path):
+    if should_export_html and is_existing_report_dir(input_path):
         from src import html_exporter
 
-        html_index = html_exporter.export_html_reports(input_path, site_title="BlaBlaCutter")
+        html_index = html_exporter.export_html_reports(
+            input_path,
+            site_title="BlaBlaCutter",
+            output_root=pages_dir,
+        )
         print(f"✅ HTML 报告已保存: {html_index}")
+        if pages_dir:
+            print(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
         return
 
     if args.html_only:
@@ -256,9 +268,15 @@ def main():
         print(f"✅ 图表报告已保存")
 
         # 可选：导出 HTML 版本
-        if args.html:
-            html_index = html_exporter.export_html_reports(OUTPUT_DIR, site_title="BlaBlaCutter")
+        if args.html or pages_dir:
+            html_index = html_exporter.export_html_reports(
+                OUTPUT_DIR,
+                site_title="BlaBlaCutter",
+                output_root=pages_dir,
+            )
             print(f"✅ HTML 报告已保存: {html_index}")
+            if pages_dir:
+                print(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
 
         # 重命名输入文件夹
         if output_subdir and paper_title:
