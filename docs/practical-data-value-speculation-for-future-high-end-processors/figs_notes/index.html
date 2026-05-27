@@ -1,0 +1,4341 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Practical Data Value Speculation for Future High-end Processors 图表详解 - BlaBlaCutter</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --sidebar: #0f172a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  line-height: 1.72;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 28px;
+  color: #fff;
+  background: var(--sidebar);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .12);
+}
+.brand {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-title {
+  overflow: hidden;
+  color: #cbd5e1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 0;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.sidebar,
+.toc {
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 28px 18px;
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: #fff;
+}
+.toc {
+  border-left: 1px solid var(--line);
+  background: #fff;
+}
+.nav-link,
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-link {
+  margin-bottom: 4px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.nav-link:hover,
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.toc-title {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.toc a {
+  padding: 5px 0;
+  font-size: 13px;
+}
+.toc a:hover { color: var(--accent); }
+.toc-level-3 { padding-left: 16px !important; }
+.content {
+  min-width: 0;
+  padding: 36px 48px 80px;
+}
+article {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 44px 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+h1, h2, h3, h4, h5, h6 {
+  position: relative;
+  line-height: 1.28;
+  scroll-margin-top: 76px;
+}
+h1 {
+  margin-top: 0;
+  font-size: 30px;
+}
+h2 {
+  margin-top: 42px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 24px;
+}
+h3 { margin-top: 30px; font-size: 20px; }
+h4 { margin-top: 24px; font-size: 17px; }
+.anchor {
+  margin-left: 8px;
+  color: #94a3b8;
+  font-size: .72em;
+  text-decoration: none;
+  opacity: 0;
+}
+h1:hover .anchor,
+h2:hover .anchor,
+h3:hover .anchor,
+h4:hover .anchor { opacity: 1; }
+p { margin: 14px 0; }
+ul, ol { padding-left: 1.35em; }
+li { margin: 5px 0; }
+a { color: var(--accent); }
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  font-size: .92em;
+}
+pre {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+pre code { padding: 0; background: transparent; color: inherit; }
+figure {
+  margin: 24px 0;
+  text-align: center;
+}
+figure img,
+p img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  font-size: 14px;
+  overflow-x: auto;
+  display: block;
+}
+table th, table td {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+table tbody tr:hover {
+  background: var(--accent-soft);
+}
+figure em {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.index {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 56px 28px;
+}
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.report-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+.report-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+}
+.report-card span {
+  display: block;
+  font-weight: 700;
+}
+	.report-card small {
+	  color: var(--muted);
+	}
+	.paper-card p {
+	  margin: 10px 0 0;
+	  color: var(--muted);
+	  font-size: 14px;
+	  line-height: 1.55;
+	}
+	.muted { color: var(--muted); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 190px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 760px) {
+  .topbar { padding: 0 16px; }
+  .layout { display: block; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 12px;
+  }
+  .content { padding: 20px 12px 48px; }
+  article { padding: 24px 18px 40px; }
+  h1 { font-size: 25px; }
+  h2 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">BlaBlaCutter</a>
+    <span class="page-title">Practical Data Value Speculation for Future High-end Processors 图表详解</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav>
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link" href="../paper_notes/index.html">论文解析</a>
+<a class="nav-link" href="../eli5_notes/index.html">通俗讲解</a>
+<a class="nav-link active" href="../figs_notes/index.html">图表详解</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <article><h1 id="practical-data-value-speculation-for-future-high-end-processors-图表详解">Practical Data Value Speculation for Future High-end Processors 图表详解<a class="anchor" href="#practical-data-value-speculation-for-future-high-end-processors-图表详解">#</a></h1>
+<h3 id="figure-1-prediction-flow-and-critical-paths-for-different-value-predictors-when-two-occurrences-of-an-instruction-are-fetched-in-two-consecutive-cycles">Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.<a class="anchor" href="#figure-1-prediction-flow-and-critical-paths-for-different-value-predictors-when-two-occurrences-of-an-instruction-are-fetched-in-two-consecutive-cycles">#</a></h3>
+<figure><img src="../images/ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" alt="ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像核心含义</strong></li>
+<ul>
+<li>该图比较了三类 Value Predictor 在“同一条静态指令的两次动态实例连续两个周期被 Fetch”时的预测流程与关键路径：</li>
+<ul>
+<li><strong>LVP / Last Value Predictor</strong></li>
+<li><strong>Stride Predictor</strong></li>
+<li><strong>FCM / Finite Context Method</strong></li>
+</ul>
+<li>图中每一类预测器都有两条水平流程线，分别表示：</li>
+<ul>
+<li>第一次 occurrence 的预测流程</li>
+<li>紧接着下一周期 Fetch 到的第二次 occurrence 的预测流程</li>
+</ul>
+<li>图中虚线框标出的部分表示 <strong>Critical path</strong>，即为了支持 back-to-back prediction 必须在极短时间内完成并前递的关键操作。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中符号含义</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>图中元素</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>PC</strong></td>
+<td>Program Counter，指令地址，用于索引预测器</td>
+</tr>
+<tr>
+<td><strong>VPT Read</strong></td>
+<td>Value Prediction Table 读取，得到预测值</td>
+</tr>
+<tr>
+<td><strong>VHT Read</strong></td>
+<td>Value History Table 读取，得到局部 value history</td>
+</tr>
+<tr>
+<td><strong>Hash</strong></td>
+<td>对历史值进行哈希，生成访问 VPT 的索引</td>
+</tr>
+<tr>
+<td><strong>Adder</strong></td>
+<td>加法器，用于 Stride Predictor 中计算 last value + stride</td>
+</tr>
+<tr>
+<td><strong>Pred</strong></td>
+<td>产生的预测值</td>
+</tr>
+<tr>
+<td><strong>Critical path</strong></td>
+<td>两次连续预测之间必须及时完成并前递的路径</td>
+</tr>
+<tr>
+<td>水平箭头</td>
+<td>数据依赖或预测流程方向</td>
+</tr>
+<tr>
+<td>向下箭头</td>
+<td>前一次预测结果被下一次预测使用</td>
+</tr>
+<tr>
+<td>横向虚线</td>
+<td>分隔不同预测器类型</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>整体结构分析</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>区域</th>
+<th>对应预测器</th>
+<th>主要流程</th>
+<th>是否存在严重 back-to-back critical path</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>上部</td>
+<td><strong>LVP</strong></td>
+<td>PC → VPT Read → Pred</td>
+<td><strong>基本不存在</strong></td>
+</tr>
+<tr>
+<td>中部</td>
+<td><strong>Stride</strong></td>
+<td>PC → VPT Read → Adder → Pred</td>
+<td><strong>存在，但较短</strong></td>
+</tr>
+<tr>
+<td>下部</td>
+<td><strong>FCM</strong></td>
+<td>PC → VHT Read → Hash → VPT Read → Pred</td>
+<td><strong>存在，且较长、复杂</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>LVP 区域分析</strong></li>
+<ul>
+<li>图像上部展示 <strong>LVP</strong>。</li>
+<li>两次连续 occurrence 的流程都是：</li>
+<ul>
+<li><strong>PC → VPT Read → Pred</strong></li>
+</ul>
+<li>第一条和第二条预测流之间没有数据前递依赖。</li>
+<li>也就是说，第二次预测不需要等待第一次预测值计算完成。</li>
+<li>原因是 <strong>LVP 只依赖 PC 访问表项</strong>，预测的是该静态指令上一次观察到的值。</li>
+<li>只要表中已有训练好的 last value，连续两次访问可以独立进行。</li>
+<li>因此：</li>
+<ul>
+<li><strong>LVP 对 back-to-back occurrences 友好</strong></li>
+<li><strong>预测访问可以跨多个 pipeline stage</strong></li>
+<li><strong>大表实现较可行</strong></li>
+<li><strong>预测延迟只需在 Dispatch 前完成即可</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>LVP 的关键结论</strong></li>
+<ul>
+<li><strong>没有从第一次 Pred 到第二次预测索引的关键反馈路径</strong>。</li>
+<li>对 tight loop 中连续出现的同一指令，LVP 仍然容易提供预测。</li>
+<li>这也是论文中将 VTAGE 类比为 LVP 行为的重要原因：<strong>VTAGE 也不依赖前一次 value，而依赖 control-flow history</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Stride Predictor 区域分析</strong></li>
+<ul>
+<li>图像中部展示 <strong>Stride Predictor</strong>。</li>
+<li>第一次 occurrence 的流程为：</li>
+<ul>
+<li><strong>PC → VPT Read → Adder → Pred</strong></li>
+</ul>
+<li>第二次 occurrence 的流程同样为：</li>
+<ul>
+<li><strong>PC → VPT Read → Adder → Pred</strong></li>
+</ul>
+<li>但与 LVP 不同，Stride 的预测需要：</li>
+<ul>
+<li><strong>last value</strong></li>
+<li><strong>stride</strong></li>
+<li>然后通过 <strong>Adder</strong> 计算：</li>
+<ul>
+<li><strong>Pred = last value + stride</strong></li>
+</ul>
+</ul>
+<li>图中从第一次 <strong>Adder/Pred</strong> 向下连接到第二次 <strong>Adder</strong> 的箭头表示：</li>
+<ul>
+<li>第二次预测可能需要使用第一次预测得到的 speculative value 作为新的 last value。</li>
+</ul>
+<li>因此，当同一指令连续两个周期 Fetch 时，第一次预测结果必须快速前递给第二次预测的加法器。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Stride 的 Critical path</strong></li>
+<ul>
+<li>图中虚线框标注的 <strong>Critical path</strong> 位于：</li>
+<ul>
+<li>第一次 occurrence 的 <strong>Adder</strong></li>
+<li>到第二次 occurrence 的 <strong>Adder 输入</strong></li>
+</ul>
+<li>该路径的本质是：</li>
+<ul>
+<li><strong>第一次预测值必须被及时旁路/前递给下一次预测</strong></li>
+</ul>
+<li>该路径相比 FCM 较简单，因为只涉及：</li>
+<ul>
+<li>一个 last value</li>
+<li>一个 stride</li>
+<li>一个加法操作</li>
+</ul>
+<li>因此论文认为：</li>
+<ul>
+<li><strong>Stride Predictor 支持连续 occurrence 是可实现的</strong></li>
+<li>但仍需额外的 speculative tracking 和 bypass 逻辑。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>Stride Predictor 的硬件含义</strong></li>
+<ul>
+<li>需要跟踪同一静态指令最近一次 occurrence 的 speculative value。</li>
+<li>如果前一次 occurrence 尚未执行或尚未 commit，则不能仅依赖 committed value。</li>
+<li>必须支持：</li>
+<ul>
+<li><strong>speculative last value tracking</strong></li>
+<li><strong>prediction-to-prediction forwarding</strong></li>
+<li><strong>快速 adder bypass</strong></li>
+</ul>
+<li>复杂度中等，但仍可接受。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FCM 区域分析</strong></li>
+<ul>
+<li>图像下部展示 <strong>FCM / Finite Context Method</strong>。</li>
+<li>第一次 occurrence 的流程为：</li>
+<ul>
+<li><strong>PC → VHT Read → Hash → VPT Read → Pred</strong></li>
+</ul>
+<li>第二次 occurrence 的流程为：</li>
+<ul>
+<li><strong>PC → VHT Read → Hash → VPT Read → Pred</strong></li>
+</ul>
+<li>与 LVP 和 Stride 相比，FCM 是典型 <strong>two-level context-based predictor</strong>：</li>
+<ul>
+<li>第一级：<strong>VHT / Value History Table</strong></li>
+<ul>
+<li>根据 PC 读取该指令的局部 value history。</li>
+</ul>
+<li>第二级：<strong>VPT / Value Prediction Table</strong></li>
+<ul>
+<li>对 value history 进行 Hash 后访问，得到预测值。</li>
+</ul>
+</ul>
+<li>FCM 的预测依赖最近若干次 value history，而不是只依赖 PC 或单个 last value。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FCM 的 Critical path</strong></li>
+<ul>
+<li>图中虚线框标注的 <strong>Critical path</strong> 覆盖：</li>
+<ul>
+<li>第一次 occurrence 的 <strong>Hash</strong></li>
+<li>第一次 occurrence 的 <strong>VPT Read</strong></li>
+<li>到第二次 occurrence 的 <strong>Hash</strong></li>
+</ul>
+<li>图中从第一次 <strong>Pred</strong> 向下连接到第二次 <strong>Hash</strong> 前方，表示：</li>
+<ul>
+<li>第二次 occurrence 的 value history 需要包含第一次 occurrence 的预测值。</li>
+</ul>
+<li>因此，第一次预测必须完成后，才能更新/形成第二次预测所需的 history，并进一步计算第二次 VPT index。</li>
+<li>这导致一个很长的串行链：</li>
+<ul>
+<li><strong>VHT Read → Hash → VPT Read → Pred → update speculative history → Hash → VPT Read</strong></li>
+</ul>
+<li>这比 Stride 的关键路径复杂得多。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FCM 的核心问题</strong></li>
+<ul>
+<li><strong>FCM 难以支持 tight loop 中同一指令的 back-to-back prediction</strong>。</li>
+<li>原因包括：</li>
+<ul>
+<li>需要追踪最近 <strong>n 个 speculative values</strong></li>
+<li>需要快速更新 local value history</li>
+<li>需要重新 Hash</li>
+<li>需要再次访问第二级 VPT</li>
+<li>两级表访问之间存在严格数据依赖</li>
+</ul>
+<li>如果 pipeline 每周期 Fetch 一次该指令，FCM 很难在一个周期内完成这些操作。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>三类预测器的对比总结</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>预测器</th>
+<th>输入上下文</th>
+<th>预测流程</th>
+<th>对前一次 occurrence 的依赖</th>
+<th>back-to-back 支持难度</th>
+<th>主要瓶颈</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>PC</td>
+<td>PC → VPT Read → Pred</td>
+<td><strong>无直接依赖</strong></td>
+<td><strong>低</strong></td>
+<td>表访问延迟</td>
+</tr>
+<tr>
+<td><strong>Stride</strong></td>
+<td>PC + last value + stride</td>
+<td>PC → VPT Read → Adder → Pred</td>
+<td><strong>依赖前一次 speculative value</strong></td>
+<td><strong>中等</strong></td>
+<td>Adder 结果前递</td>
+</tr>
+<tr>
+<td><strong>FCM</strong></td>
+<td>PC + local value history</td>
+<td>PC → VHT Read → Hash → VPT Read → Pred</td>
+<td><strong>强依赖前 n 次 values</strong></td>
+<td><strong>高</strong></td>
+<td>VHT/Hash/VPT 串行关键路径</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么该图服务于论文的 VTAGE 动机</strong></li>
+<ul>
+<li>论文提出 <strong>VTAGE</strong> 的重要动机之一，就是避免 FCM 这类 local value history predictor 的关键路径问题。</li>
+<li>VTAGE 使用：</li>
+<ul>
+<li><strong>global branch history</strong></li>
+<li><strong>path history</strong></li>
+<li><strong>PC</strong></li>
+</ul>
+<li>而不是使用本指令前几次产生的 value history。</li>
+<li>因此 VTAGE 的预测不需要等待前一次 occurrence 的 predicted value。</li>
+<li>从 back-to-back prediction 行为看，VTAGE 更接近图中的 <strong>LVP</strong>：</li>
+<ul>
+<li>可以连续预测</li>
+<li>不需要复杂 speculative value history tracking</li>
+<li>预测访问可以跨多个周期完成</li>
+<li>更适合大容量 predictor table</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>图中隐含的 pipeline 时序问题</strong></li>
+<ul>
+<li>Value Prediction 通常不像 branch prediction 那样必须在 Fetch 早期完成。</li>
+<li>它只需要在 <strong>Dispatch / Rename 前后</strong> 提供预测值即可。</li>
+<li>因此表访问延迟本身不是最大问题。</li>
+<li>真正的问题是：</li>
+<ul>
+<li>对于需要前一次预测结果作为下一次预测输入的预测器，连续 occurrence 会形成 <strong>prediction-to-prediction dependency loop</strong>。</li>
+</ul>
+<li>图中重点展示的正是这种 loop：</li>
+<ul>
+<li>LVP：无 loop</li>
+<li>Stride：短 loop</li>
+<li>FCM：长 loop</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>对硬件实现复杂度的启示</strong></li>
+<ul>
+<li><strong>LVP</strong></li>
+<ul>
+<li>实现简单。</li>
+<li>表可做得较大。</li>
+<li>但预测能力有限，只能利用 last value locality。</li>
+</ul>
+<li><strong>Stride</strong></li>
+<ul>
+<li>对规律递增/递减值有效。</li>
+<li>需要 speculative last value 维护。</li>
+<li>需要快速 bypass。</li>
+</ul>
+<li><strong>FCM</strong></li>
+<ul>
+<li>理论上能捕获复杂 value pattern。</li>
+<li>但实际硬件实现困难。</li>
+<li>特别是在宽 Fetch、深流水、高频处理器中，关键路径过长。</li>
+</ul>
+<li><strong>VTAGE</strong></li>
+<ul>
+<li>论文希望通过 global branch history 替代 local value history。</li>
+<li>以牺牲部分 value-history 表达方式为代价，换取更实际的时序可实现性。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>该图对应论文中的核心论点</strong></li>
+<ul>
+<li><strong>预测器准确率不是唯一问题，可实现性同样关键。</strong></li>
+<li>即使 FCM 类预测器在理想模拟中有较好预测潜力，也可能因为：</li>
+<ul>
+<li>two-level lookup</li>
+<li>local history update</li>
+<li>speculative value tracking</li>
+<li>back-to-back critical path</li>
+</ul>
+</ul>
+</ul>
+<p>而难以实际部署。</p>
+<ul>
+<li>VTAGE 的优势不只是性能，还包括：</li>
+<ul>
+<li><strong>无 local value feedback critical path</strong></li>
+<li><strong>天然支持连续 occurrence</strong></li>
+<li><strong>适合现代 wide/deep pipeline</strong></li>
+<li><strong>可使用较大表结构</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>图像最终结论</strong></li>
+<ul>
+<li><strong>LVP</strong>：预测流程最简单，连续预测友好，但表达能力有限。</li>
+<li><strong>Stride</strong>：需要前一次 speculative prediction 前递，存在短 critical path，但仍较可实现。</li>
+<li><strong>FCM</strong>：需要两级访问和 value history 更新，存在长 critical path，对 tight loop 极不友好。</li>
+<li>该图直接支撑论文提出 <strong>VTAGE</strong> 的必要性：</li>
+</ul>
+</ul>
+<p><strong>使用 control-flow history 的 value predictor 可以避免 local value history predictor 在连续预测场景下的复杂关键路径问题。</strong></p>
+<h3 id="figure-2-1n-component-vtage-predictor-val-is-the-prediction-c-is-the-hysteresis-counter-acting-as-confidence-counter-u-is-the-useful-bit-used-by-the-replacement-policy">Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.<a class="anchor" href="#figure-2-1n-component-vtage-predictor-val-is-the-prediction-c-is-the-hysteresis-counter-acting-as-confidence-counter-u-is-the-useful-bit-used-by-the-replacement-policy">#</a></h3>
+<figure><img src="../images/6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" alt="6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像对象</strong>：该图展示的是论文提出的 <strong>VTAGE（Value TAgged GEometric history length）value predictor</strong> 结构，即一个 <strong>(1+N)-component VTAGE predictor</strong>。</li>
+<li><strong>核心含义</strong>：VTAGE 由 <strong>1 个 base predictor（VT0）</strong> 加上 <strong>N 个 tagged components（VT1…VTN）</strong> 组成，用于基于 <strong>PC、global branch history、path/history hash</strong> 对指令结果值进行预测。</li>
+<li><strong>图中关键说明</strong>：</li>
+<ul>
+<li><strong>Val</strong>：预测值，即 value prediction 输出。</li>
+<li><strong>c</strong>：hysteresis/confidence counter，用作 <strong>confidence counter</strong>。</li>
+<li><strong>tag</strong>：部分标签，用于判断当前表项是否匹配。</li>
+<li><strong>u</strong>：useful bit，用于替换策略，判断表项是否值得保留。</li>
+<li><strong>sat?</strong>：判断 confidence counter 是否饱和，只有饱和时预测才被认为有效。</li>
+<li><strong>Prediction</strong>：最终输出的预测值。</li>
+<li><strong>Valid</strong>：预测是否可用的有效信号。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>图中模块</th>
+<th>对应含义</th>
+<th>作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>VT0 / Base predictor</strong></td>
+<td>tagless Last Value Predictor 类似结构</td>
+<td>仅用 <strong>PC</strong> 索引，提供基础预测</td>
+</tr>
+<tr>
+<td><strong>VT1…VTN</strong></td>
+<td>tagged components</td>
+<td>使用不同长度的历史信息进行预测</td>
+</tr>
+<tr>
+<td><strong>hash</strong></td>
+<td>哈希逻辑</td>
+<td>将 <strong>PC</strong> 与不同长度的 history 组合生成索引/标签</td>
+</tr>
+<tr>
+<td><strong>val</strong></td>
+<td>value field</td>
+<td>存储预测值</td>
+</tr>
+<tr>
+<td><strong>c</strong></td>
+<td>confidence counter</td>
+<td>判断预测是否足够可信</td>
+</tr>
+<tr>
+<td><strong>tag</strong></td>
+<td>partial tag</td>
+<td>验证表项是否匹配当前预测上下文</td>
+</tr>
+<tr>
+<td><strong>u</strong></td>
+<td>useful bit</td>
+<td>辅助替换策略，避免替换有用表项</td>
+</tr>
+<tr>
+<td><strong>=?</strong></td>
+<td>tag comparator</td>
+<td>判断当前表项 tag 是否命中</td>
+</tr>
+<tr>
+<td><strong>sat?</strong></td>
+<td>saturation test</td>
+<td>判断 confidence counter 是否饱和</td>
+</tr>
+<tr>
+<td><strong>MUX</strong></td>
+<td>多路选择器</td>
+<td>从多个候选预测中选择最终 provider</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>整体结构分析</strong>：</li>
+<ul>
+<li>图中虚线框表示整个 <strong>VTAGE predictor</strong>。</li>
+<li>左侧 <strong>VT0</strong> 是基础预测器，结构最简单，只根据 <strong>pc</strong> 访问。</li>
+<li>右侧 <strong>VT1 到 VTN</strong> 是多个 tagged predictor components。</li>
+<li>每个 tagged component 使用不同长度的历史信息：</li>
+<ul>
+<li><strong>VT1</strong> 使用较短 history，例如 <strong>h[0:L(1)]</strong>。</li>
+<li><strong>VTN</strong> 使用更长 history，例如 <strong>h[0:L(N)]</strong>。</li>
+</ul>
+<li>历史长度按照 <strong>geometric series</strong> 增长，这是 TAGE 系列预测器的核心思想。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>预测输入路径</strong>：</li>
+<ul>
+<li>每个 component 都接收 <strong>pc</strong>。</li>
+<li>Tagged components 额外接收不同长度的 <strong>global branch history</strong>。</li>
+<li>图中上方的 <strong>hash</strong> 模块表示：</li>
+<ul>
+<li>一部分 hash 用于生成 table index。</li>
+<li>另一部分 hash 用于生成或匹配 partial tag。</li>
+</ul>
+<li>因此，VTAGE 并不是基于 local value history，而是基于 <strong>control-flow context</strong>。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>输入信号</th>
+<th>进入模块</th>
+<th>用途</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>pc</strong></td>
+<td>VT0, VT1…VTN</td>
+<td>基础索引信息</td>
+</tr>
+<tr>
+<td><strong>h[0:L(1)]</strong></td>
+<td>VT1</td>
+<td>短历史上下文</td>
+</tr>
+<tr>
+<td><strong>h[0:L(N)]</strong></td>
+<td>VTN</td>
+<td>长历史上下文</td>
+</tr>
+<tr>
+<td><strong>hash(pc, history)</strong></td>
+<td>tagged components</td>
+<td>生成索引和 tag</td>
+</tr>
+<tr>
+<td><strong>tag comparison</strong></td>
+<td>comparator</td>
+<td>判断当前 component 是否命中</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>VT0 Base predictor 分析</strong>：</li>
+<ul>
+<li><strong>VT0</strong> 没有 tag 字段，因此是 <strong>tagless predictor</strong>。</li>
+<li>其内部主要包含：</li>
+<ul>
+<li>预测值字段。</li>
+<li><strong>c confidence counter</strong>。</li>
+</ul>
+<li>它类似于 <strong>LVP（Last Value Predictor）</strong>。</li>
+<li>当没有 tagged component 命中时，VT0 可以作为 fallback provider。</li>
+<li>优点是访问简单、覆盖范围广。</li>
+<li>缺点是上下文区分能力弱，容易受 aliasing 或控制流变化影响。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VT1…VTN Tagged components 分析</strong>：</li>
+<ul>
+<li>每个 tagged component 的 entry 包含：</li>
+<ul>
+<li><strong>val</strong></li>
+<li><strong>c</strong></li>
+<li><strong>tag</strong></li>
+<li><strong>u</strong></li>
+</ul>
+<li>与 VT0 不同，tagged components 通过 <strong>tag match</strong> 判断当前 entry 是否对应当前上下文。</li>
+<li>越靠右的 component 使用越长的 history。</li>
+<li>使用更长 history 的 component 能捕获更复杂的控制流相关 value pattern。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>Component</th>
+<th style="text-align:right">是否有 tag</th>
+<th style="text-align:right">使用 history</th>
+<th>预测能力</th>
+<th>典型角色</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>VT0</strong></td>
+<td style="text-align:right">否</td>
+<td style="text-align:right">无，仅 PC</td>
+<td>简单 last-value pattern</td>
+<td>fallback</td>
+</tr>
+<tr>
+<td><strong>VT1</strong></td>
+<td style="text-align:right">是</td>
+<td style="text-align:right">短 history</td>
+<td>捕获短控制流相关模式</td>
+<td>low-order context</td>
+</tr>
+<tr>
+<td><strong>VT2…VTN-1</strong></td>
+<td style="text-align:right">是</td>
+<td style="text-align:right">中等 history</td>
+<td>捕获中等复杂上下文</td>
+<td>intermediate provider</td>
+</tr>
+<tr>
+<td><strong>VTN</strong></td>
+<td style="text-align:right">是</td>
+<td style="text-align:right">长 history</td>
+<td>捕获长距离控制流相关模式</td>
+<td>high-order provider</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>tag match 机制</strong>：</li>
+<ul>
+<li>图中每个 tagged component 下方都有 <strong>=?</strong> 比较器。</li>
+<li>该比较器用于比较：</li>
+<ul>
+<li>当前由 <strong>pc + history hash</strong> 得到的 tag。</li>
+<li>表项中存储的 <strong>tag</strong>。</li>
+</ul>
+<li>如果相等，则该 component 被认为 <strong>hit</strong>。</li>
+<li>多个 component 可能同时 hit。</li>
+<li>VTAGE 的选择原则是：<strong>选择使用最长 history 的 matching component 作为 provider</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>provider selection 分析</strong>：</li>
+<ul>
+<li>图中多个 component 的输出汇入底部的选择逻辑。</li>
+<li>当多个 tagged components 同时 tag match 时：</li>
+<ul>
+<li>使用历史长度最长的 component。</li>
+<li>即优先选择最右侧、更高编号的 component。</li>
+</ul>
+<li>如果没有 tagged component 命中：</li>
+<ul>
+<li>使用 <strong>VT0 base predictor</strong>。</li>
+</ul>
+<li>这种机制继承自 <strong>TAGE/ITTAGE</strong>：</li>
+<ul>
+<li>短历史 component 提供稳定性。</li>
+<li>长历史 component 提供精确上下文区分能力。</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>命中情况</th>
+<th>Provider 选择</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>无 tagged component 命中</td>
+<td>使用 <strong>VT0</strong></td>
+</tr>
+<tr>
+<td>只有 VT1 命中</td>
+<td>使用 <strong>VT1</strong></td>
+</tr>
+<tr>
+<td>VT1、VT2 同时命中</td>
+<td>使用历史更长的 <strong>VT2</strong></td>
+</tr>
+<tr>
+<td>VT1…VTN 多个命中</td>
+<td>使用最长 history 的 matching component</td>
+</tr>
+<tr>
+<td>provider confidence 不饱和</td>
+<td>预测可能不被使用</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>confidence 机制分析</strong>：</li>
+<ul>
+<li>每个 entry 都有 <strong>c</strong> 字段。</li>
+<li>图中底部的 <strong>sat?</strong> 表示检查 provider 的 confidence counter 是否饱和。</li>
+<li>只有当 <strong>c saturated</strong> 时，预测才被输出为有效预测。</li>
+<li>因此，最终预测需要满足两个条件：</li>
+<ul>
+<li><strong>tag/component 命中</strong>。</li>
+<li><strong>confidence counter 饱和</strong>。</li>
+</ul>
+<li>这与论文中的 <strong>FPC（Forward Probabilistic Counters）</strong> 密切相关。</li>
+<li>FPC 的目标是降低 coverage，换取极高 accuracy。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>条件</th>
+<th>结果</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>provider 命中且 <strong>c saturated</strong></td>
+<td><strong>Valid = true</strong>，输出 Prediction</td>
+</tr>
+<tr>
+<td>provider 命中但 <strong>c 未饱和</strong></td>
+<td>不使用预测</td>
+</tr>
+<tr>
+<td>无可靠 provider</td>
+<td>不使用预测或 fallback 到低级 component</td>
+</tr>
+<tr>
+<td>预测错误</td>
+<td>c reset 或降低，可能触发新 entry 分配</td>
+</tr>
+<tr>
+<td>预测正确</td>
+<td>c 以概率方式前进，逐步建立信心</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>u useful bit 分析</strong>：</li>
+<ul>
+<li>每个 tagged component 中的 <strong>u</strong> 字段用于替换策略。</li>
+<li>当发生 misprediction 或需要分配新 entry 时：</li>
+<ul>
+<li>VTAGE 会尝试在更长 history 的 component 中分配新 entry。</li>
+<li>优先选择 <strong>u = 0</strong> 的 entry。</li>
+</ul>
+<li>如果所有候选 entry 都被认为 useful：</li>
+<ul>
+<li>可能清除某些 useful bit。</li>
+<li>或暂时不分配新 entry。</li>
+</ul>
+<li>该机制避免频繁替换真正有用的 long-history entries。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>预测输出路径</strong>：</li>
+<ul>
+<li>每个 component 的 <strong>val</strong> 字段都可能成为候选预测值。</li>
+<li>图中底部多个 MUX 表示：</li>
+<ul>
+<li>先根据 tag match 选择 provider。</li>
+<li>再根据 provider 的 confidence counter 判断是否 valid。</li>
+<li>最后输出 <strong>Prediction</strong>。</li>
+</ul>
+<li>如果 <strong>sat?</strong> 判断通过，则 <strong>Valid</strong> 信号置位。</li>
+<li>如果 confidence 不足，即使有预测值，也不会被处理器使用。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>输出</th>
+<th>来源</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Prediction</strong></td>
+<td>provider component 的 val</td>
+<td>最终预测值</td>
+</tr>
+<tr>
+<td><strong>Valid</strong></td>
+<td>sat? 判断结果</td>
+<td>是否允许使用该预测</td>
+</tr>
+<tr>
+<td><strong>provider identity</strong></td>
+<td>最长匹配 component</td>
+<td>用于后续 update/training</td>
+</tr>
+<tr>
+<td><strong>confidence state</strong></td>
+<td>c</td>
+<td>控制预测是否启用</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>与传统 value predictor 的区别</strong>：</li>
+<ul>
+<li>传统 <strong>FCM</strong> 通常依赖 local value history。</li>
+<li><strong>Stride predictor</strong> 依赖上一实例的值和 stride。</li>
+<li><strong>VTAGE</strong> 依赖的是 <strong>global branch history + path history</strong>。</li>
+<li>因此 VTAGE 不需要等待上一动态实例产生值。</li>
+<li>这使它特别适合预测 <strong>back-to-back occurrences</strong>，即紧密循环中连续出现的同一指令。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>Predictor</th>
+<th>依赖信息</th>
+<th style="text-align:right">是否适合 back-to-back prediction</th>
+<th>主要问题</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>PC</td>
+<td style="text-align:right">是</td>
+<td>上下文区分弱</td>
+</tr>
+<tr>
+<td><strong>Stride</strong></td>
+<td>last value + stride</td>
+<td style="text-align:right">较难</td>
+<td>需要跟踪 speculative last value</td>
+</tr>
+<tr>
+<td><strong>FCM</strong></td>
+<td>local value history</td>
+<td style="text-align:right">难</td>
+<td>需要连续更新 value history，存在 critical loop</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>PC + global branch history</td>
+<td style="text-align:right"><strong>是</strong></td>
+<td>需要多表 hash 与 tag match</td>
+</tr>
+<tr>
+<td><strong>VTAGE + FPC</strong></td>
+<td>PC + history + high confidence</td>
+<td style="text-align:right"><strong>是</strong></td>
+<td>coverage 会降低</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>图中体现的 VTAGE 关键优势</strong>：</li>
+<ul>
+<li><strong>多历史长度并行查找</strong>：所有 components 可同时访问。</li>
+<li><strong>最长匹配优先</strong>：提高上下文区分能力。</li>
+<li><strong>confidence-gated prediction</strong>：只有高可信预测才使用。</li>
+<li><strong>不依赖 local value history</strong>：避免 FCM 类预测器的关键路径问题。</li>
+<li><strong>可跨多个 pipeline cycles 完成访问</strong>：因为预测只需在 Dispatch 前可用。</li>
+<li><strong>适合大容量实现</strong>：不像 FCM 那样受连续实例预测延迟强约束。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文主张的关系</strong>：</li>
+<ul>
+<li>该图支撑论文的第二个核心贡献：提出 <strong>VTAGE</strong>。</li>
+<li>VTAGE 借鉴了 <strong>ITTAGE/TAGE branch predictor</strong> 思想。</li>
+<li>论文认为：</li>
+<ul>
+<li>Indirect branch target 本质上也是一种 value。</li>
+<li>因此可将 ITTAGE 的多历史 tagged 结构迁移到 value prediction。</li>
+</ul>
+<li>图中 <strong>VT0 + VT1…VTN</strong> 正是这种迁移后的硬件结构。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>更新机制对应关系</strong>：</li>
+<ul>
+<li>图中没有完整画出 update path，但字段设计暗示了更新逻辑。</li>
+<li>当预测正确：</li>
+<ul>
+<li>provider 的 <strong>c</strong> 增强。</li>
+<li><strong>u</strong> 可能被标记为 useful。</li>
+</ul>
+<li>当预测错误：</li>
+<ul>
+<li>如果 <strong>c = 0</strong>，可替换当前 <strong>val</strong>。</li>
+<li>可能在更长 history component 中分配新 entry。</li>
+<li>新 entry 存储新的 <strong>val/tag/c/u</strong>。</li>
+</ul>
+<li>这种方式使 VTAGE 能逐步学习更具体的上下文模式。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>事件</th>
+<th>VTAGE 行为</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>正确预测</td>
+<td>增强 confidence counter</td>
+</tr>
+<tr>
+<td>错误预测且 c 较低</td>
+<td>替换 val</td>
+</tr>
+<tr>
+<td>错误预测</td>
+<td>尝试在 longer-history component 分配新 entry</td>
+</tr>
+<tr>
+<td>没有可替换 entry</td>
+<td>清理 useful bit 或放弃分配</td>
+</tr>
+<tr>
+<td>entry 经常正确</td>
+<td>u 被维护为 useful</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么使用 geometric history length</strong>：</li>
+<ul>
+<li>图中 history 长度从 <strong>L(1)</strong> 到 <strong>L(N)</strong>。</li>
+<li>论文中例子为 <strong>2, 4, 8, 16, 32, 64</strong>。</li>
+<li>几何增长带来平衡：</li>
+<ul>
+<li>短 history 捕获局部控制流模式。</li>
+<li>长 history 捕获跨分支、跨循环的复杂模式。</li>
+<li>表数量有限，覆盖多种相关距离。</li>
+</ul>
+<li>这是 TAGE 系列预测器成功的核心设计。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>硬件实现角度分析</strong>：</li>
+<ul>
+<li>所有 tagged components 并行访问，理论上延迟较高。</li>
+<li>但 value prediction 在 pipeline 中不必像 branch prediction 一样极早完成。</li>
+<li>预测从 Fetch 开始，到 Dispatch 前可用即可。</li>
+<li>因此 VTAGE 可以容忍：</li>
+<ul>
+<li>多级 hash。</li>
+<li>多表读取。</li>
+<li>tag 比较。</li>
+<li>provider 选择。</li>
+</ul>
+<li>这也是论文强调 VTAGE 比 FCM 更 practical 的原因。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>潜在硬件开销</strong>：</li>
+<ul>
+<li>每个 tagged entry 需要存储完整 <strong>64-bit val</strong>，开销较大。</li>
+<li>还需要 tag、confidence counter、useful bit。</li>
+<li>多表并行访问增加能耗。</li>
+<li>但相比 selective reissue 复杂恢复机制，VTAGE + FPC 的设计将复杂度主要限制在 predictor 与 commit validation 侧。</li>
+<li>论文认为这更适合未来 high-end processors。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>硬件成本项</th>
+<th>来源</th>
+<th>影响</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Value storage</strong></td>
+<td>每个 entry 存储 64-bit val</td>
+<td>面积较大</td>
+</tr>
+<tr>
+<td><strong>Tag storage</strong></td>
+<td>tagged components</td>
+<td>降低 aliasing，但增加存储</td>
+</tr>
+<tr>
+<td><strong>Hash logic</strong></td>
+<td>PC + history indexing</td>
+<td>增加组合逻辑</td>
+</tr>
+<tr>
+<td><strong>Comparators</strong></td>
+<td>tag match</td>
+<td>增加访问延迟与能耗</td>
+</tr>
+<tr>
+<td><strong>MUX network</strong></td>
+<td>provider selection</td>
+<td>增加选择路径复杂度</td>
+</tr>
+<tr>
+<td><strong>Confidence counters</strong></td>
+<td>c / FPC</td>
+<td>小额存储，显著提升准确率</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>图中最重要的设计思想</strong>：</li>
+<ul>
+<li><strong>prediction value 与 confidence 分离</strong>：</li>
+<ul>
+<li>即使有 val，也不一定使用。</li>
+<li>必须通过 <strong>sat?</strong>。</li>
+</ul>
+<li><strong>context specificity 分层</strong>：</li>
+<ul>
+<li>VT0 最泛化。</li>
+<li>VTN 最具体。</li>
+</ul>
+<li><strong>accuracy 优先于 coverage</strong>：</li>
+<ul>
+<li>图中的 confidence gating 体现论文核心判断：</li>
+<li>在 commit-time validation 下，低误预测率比高覆盖率更重要。</li>
+</ul>
+<li><strong>longest-history provider selection</strong>：</li>
+<ul>
+<li>让预测尽可能来自最具体的控制流上下文。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>该图对论文结论的支撑</strong>：</li>
+<ul>
+<li>说明 VTAGE 可以用类似 branch predictor 的方式预测 value。</li>
+<li>说明 VTAGE 不需要本地 value history，因此能避免 tight loop 中 back-to-back prediction 的 critical path。</li>
+<li>说明通过 <strong>c confidence counter</strong>，VTAGE 可与 <strong>FPC</strong> 结合，达到极高 accuracy。</li>
+<li>说明预测器本身可以作为一种较现实的硬件方案，而不是依赖理想化 selective reissue。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>总结性评价</strong>：</li>
+<ul>
+<li><strong>Figure 2 是 VTAGE 的核心结构图</strong>。</li>
+<li>它展示了从 <strong>PC-only base prediction</strong> 到 <strong>multi-history tagged prediction</strong> 的层次化设计。</li>
+<li>该设计本质上将 <strong>TAGE/ITTAGE 的控制流相关预测能力</strong> 引入 <strong>data value prediction</strong>。</li>
+<li>其关键优势是：</li>
+<ul>
+<li><strong>高准确率潜力</strong>。</li>
+<li><strong>适合 back-to-back prediction</strong>。</li>
+<li><strong>可配合 FPC 进行高置信筛选</strong>。</li>
+<li><strong>比 FCM 更易实现大表与多周期访问</strong>。</li>
+</ul>
+<li>其主要代价是：</li>
+<ul>
+<li><strong>存储开销较高</strong>。</li>
+<li><strong>多表并行访问带来能耗</strong>。</li>
+<li><strong>coverage 依赖 confidence 策略，FPC 会牺牲部分覆盖率</strong>。</li>
+</ul>
+<li>从论文整体看，该图是作者论证 <strong>practical value prediction</strong> 的关键硬件依据。</li>
+</ul>
+</ul>
+<h3 id="55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978jpg">55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978.jpg<a class="anchor" href="#55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978jpg">#</a></h3>
+<figure><img src="../images/55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978.jpg" alt="55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型与论文位置</strong></li>
+<ul>
+<li>该图对应论文中的 <strong>Figure 3: Speedup upper bound for the studied configurations. An oracle predicts all results.</strong></li>
+<li>图中展示的是：在研究配置下，如果存在一个<strong>完美的 Value Predictor / Oracle Predictor</strong>，能够预测所有可预测结果时，各个 SPEC benchmark 相对 baseline 的<strong>理论加速上界</strong>。</li>
+<li>该图不是实际 VTAGE、Stride、FCM 等预测器的结果，而是用于回答一个核心问题：<strong>Value Prediction 在这些程序中最多有多大潜力？</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>坐标轴含义</strong></li>
+<ul>
+<li>横轴：19 个 SPEC’00 / SPEC’06 benchmark。</li>
+<li>纵轴：相对 baseline 的 <strong>Speedup</strong>。</li>
+<li>纵轴范围约为 <strong>1.0 到 3.5</strong>。</li>
+<li>数值越高，说明程序中存在越多可被 Value Prediction 打破的数据依赖，理论收益越大。</li>
+<li>数值接近 1，说明即使完美预测所有值，也几乎无法带来性能提升，瓶颈可能主要来自 <strong>memory hierarchy、branch prediction、fetch bandwidth、ROB/IQ/LSQ size</strong> 等其他因素。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中近似数据表</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">类型</th>
+<th style="text-align:right">近似 Speedup 上界</th>
+<th>观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>3.35×</strong></td>
+<td>全图最高，Value Prediction 潜力极大</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.35×</strong></td>
+<td>有一定潜力，但不突出</td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.85×</strong></td>
+<td>较高潜力</td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.45×</strong></td>
+<td>中等潜力</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.25×</strong></td>
+<td>潜力较低</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.62×</strong></td>
+<td>中等偏高</td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.65×</strong></td>
+<td>中等偏高</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.20×</strong></td>
+<td>潜力较低</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>3.20×</strong></td>
+<td>极高潜力，仅次于 gzip</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.78×</strong></td>
+<td>较高潜力</td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>2.40×</strong></td>
+<td>高潜力</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.68×</strong></td>
+<td>中等偏高</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.35×</strong></td>
+<td>有限潜力</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.05×</strong></td>
+<td>几乎无理论收益</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.38×</strong></td>
+<td>中等偏低</td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.50×</strong></td>
+<td>中等潜力</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>1.32×</strong></td>
+<td>中等偏低</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">INT</td>
+<td style="text-align:right"><strong>2.52×</strong></td>
+<td>高潜力</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">FP</td>
+<td style="text-align:right"><strong>1.22×</strong></td>
+<td>潜力较低</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>总体趋势</strong></li>
+<ul>
+<li>大多数 benchmark 的上界大于 <strong>1.2×</strong>，说明 <strong>Value Prediction 在现代较宽、较深 pipeline 中仍有实际研究价值</strong>。</li>
+<li>部分程序的上界超过 <strong>2×</strong>，表明其性能强烈受限于数据依赖链，若能准确预测值，可以显著缩短 critical path。</li>
+<li>但也存在如 <strong>444.namd</strong> 这类程序，即使 oracle 完美预测，也几乎没有加速空间，说明其瓶颈不在普通寄存器值依赖上。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>高收益 benchmark 分析</strong></li>
+<ul>
+<li><strong>164.gzip：约 3.35×</strong></li>
+<ul>
+<li>是图中收益最高的程序。</li>
+<li>表明 gzip 的执行中存在大量可通过 Value Prediction 打破的 true data dependencies。</li>
+<li>如果预测足够准确，理论上可以大幅提升 instruction-level parallelism。</li>
+</ul>
+<li><strong>401.bzip2：约 3.20×</strong></li>
+<ul>
+<li>与 gzip 类似，同属压缩类整数程序。</li>
+<li>高上界说明其压缩/解压核心循环中存在强数据依赖链，但很多值具有可预测性。</li>
+</ul>
+<li><strong>464.h264ref：约 2.52×</strong></li>
+<ul>
+<li>视频编码类程序，数据处理密集。</li>
+<li>上界较高，说明其部分计算路径可能存在重复模式或控制流相关的值模式。</li>
+</ul>
+<li><strong>416.gamess：约 2.40×</strong></li>
+<ul>
+<li>浮点科学计算程序。</li>
+<li>高上界说明即使是 FP benchmark，也可能存在大量可预测或可投机化的数据值。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>中等收益 benchmark 分析</strong></li>
+<ul>
+<li><strong>173.applu、403.gcc、429.mcf、197.parser、186.crafty、456.hmmer</strong> 的理论上界大约在 <strong>1.5× 到 1.9×</strong>。</li>
+<li>这些程序存在一定数据依赖瓶颈，但不如 gzip、bzip2、h264ref 那样极端。</li>
+<li>对这些程序而言，实际 Value Predictor 的收益很依赖：</li>
+<ul>
+<li><strong>prediction coverage</strong></li>
+<li><strong>prediction accuracy</strong></li>
+<li><strong>misprediction recovery cost</strong></li>
+<li><strong>是否能预测关键路径上的值</strong></li>
+</ul>
+<li>即使 oracle 上界较高，真实预测器若覆盖不到关键指令，也可能只能获得有限 speedup。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>低收益 benchmark 分析</strong></li>
+<ul>
+<li><strong>444.namd：约 1.05×</strong></li>
+<ul>
+<li>几乎没有 Value Prediction 加速空间。</li>
+<li>论文后文也指出：某些 benchmark 即使预测覆盖率很高，实际性能也可能提升很小，因为程序本身没有足够的 Value Prediction 可利用潜力。</li>
+</ul>
+<li><strong>255.vortex、470.lbm、179.art、458.sjeng、433.milc</strong> 的上界大多在 <strong>1.2× 到 1.35×</strong>。</li>
+<ul>
+<li>这些程序可能主要受限于其他因素，例如 cache miss、memory bandwidth、branch behavior 或 pipeline resource constraints。</li>
+<li>对这些程序，复杂 Value Predictor 的硬件成本可能难以被性能收益抵消。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>INT 与 FP benchmark 对比</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>类别</th>
+<th>代表程序</th>
+<th>观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>INT 高收益</strong></td>
+<td>gzip、bzip2、h264ref</td>
+<td>整数程序中存在多个极高 Value Prediction 潜力案例</td>
+</tr>
+<tr>
+<td><strong>INT 中等收益</strong></td>
+<td>gcc、mcf、parser、crafty、hmmer</td>
+<td>多数整数程序有稳定但有限的收益空间</td>
+</tr>
+<tr>
+<td><strong>FP 高收益</strong></td>
+<td>gamess、applu</td>
+<td>部分浮点程序也有明显潜力</td>
+</tr>
+<tr>
+<td><strong>FP 低收益</strong></td>
+<td>namd、lbm、art、milc</td>
+<td>多个浮点程序上界较低，说明瓶颈不一定是值依赖</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>与论文核心论点的关系</strong></li>
+<ul>
+<li>该图用于证明：<strong>Value Prediction 的理论潜力仍然存在</strong>。</li>
+<li>作者首先展示 oracle 上界，说明如果值预测完全准确，很多程序能够显著加速。</li>
+<li>随后论文才讨论实际问题：</li>
+<ul>
+<li>如何避免 value misprediction 带来的高恢复代价。</li>
+<li>如何用 <strong>Forward Probabilistic Counters, FPC</strong> 将准确率提高到 <strong>99.7%+</strong>。</li>
+<li>如何用 <strong>VTAGE</strong> 解决传统 context-based predictor 在 tight loop 中的 back-to-back prediction 问题。</li>
+</ul>
+<li>因此，该图是后续技术方案的动机基础：<strong>既然上界很高，就值得设计更实际、更高准确率、更低复杂度的 Value Prediction 机制。</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>关键技术含义</strong></li>
+<ul>
+<li><strong>高 oracle speedup 不等于实际 predictor 一定高收益</strong>。</li>
+<ul>
+<li>Oracle 假设所有值都能正确预测。</li>
+<li>实际预测器受限于 coverage、accuracy、confidence estimation、table conflict、training latency。</li>
+</ul>
+<li><strong>低 oracle speedup 意味着实际收益上限天然有限</strong>。</li>
+<ul>
+<li>例如 namd，即使真实预测器覆盖率很高，也很难获得显著加速。</li>
+</ul>
+<li><strong>Value Prediction 的收益高度 benchmark-dependent</strong>。</li>
+<ul>
+<li>图中 speedup 从约 <strong>1.05× 到 3.35×</strong>，跨度很大。</li>
+<li>说明不能只看平均值，必须逐程序分析。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>与后续实验结果的对应关系</strong></li>
+<ul>
+<li>后续 Figure 4、Figure 5、Figure 7 中，实际预测器的 speedup 明显低于该图中的 oracle 上界。</li>
+<li>这是合理的，因为实际预测器：</li>
+<ul>
+<li>不能预测所有结果。</li>
+<li>必须依赖 confidence counters。</li>
+<li>会牺牲 coverage 来换取 high accuracy。</li>
+<li>还可能遭遇 value misprediction recovery penalty。</li>
+</ul>
+<li>例如：</li>
+<ul>
+<li><strong>gzip、bzip2、h264ref</strong> 在 Figure 3 中上界很高，因此后续实际预测器也更可能取得明显收益。</li>
+<li><strong>namd</strong> 上界接近 1，因此即使预测覆盖率较高，实际 speedup 仍然有限。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>核心结论</strong></li>
+<ul>
+<li>该图清楚表明：<strong>Value Prediction 在部分现代 benchmark 上仍有很高理论潜力</strong>。</li>
+<li>最有潜力的程序包括 <strong>164.gzip、401.bzip2、464.h264ref、416.gamess</strong>。</li>
+<li>但收益分布极不均衡，部分程序如 <strong>444.namd</strong> 几乎没有可利用空间。</li>
+<li>因此，论文提出的 <strong>FPC + VTAGE + commit-time validation</strong> 的意义在于：用较低复杂度和极高准确率，在有潜力的程序上逼近一部分 oracle 上界，同时避免在低收益程序上造成明显 slowdown。</li>
+</ul>
+</ul>
+<h3 id="11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124jpg">11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124.jpg<a class="anchor" href="#11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124jpg">#</a></h3>
+<figure><img src="../images/11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124.jpg" alt="11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型与出处</strong></li>
+<ul>
+<li>该图对应论文中的 <strong>Figure 4(a): Baseline counters</strong>。</li>
+<li>展示的是在使用 <strong>squashing at commit</strong> 作为 value misprediction recovery 机制时，不同 <strong>Value Predictor</strong> 相对 baseline processor 的 <strong>speedup</strong>。</li>
+<li>图中使用的是普通 <strong>3-bit saturating confidence counters</strong>，即论文中所谓的 <strong>Baseline counters</strong>，尚未使用 <strong>Forward Probabilistic Counters, FPC</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>坐标与图例含义</strong></li>
+<ul>
+<li>横轴是 SPEC benchmark，包括 SPEC CPU2000 与 SPEC CPU2006 中的 19 个程序。</li>
+<li>纵轴是 <strong>Speedup over baseline</strong>：</li>
+<ul>
+<li><strong>1.0</strong> 表示与无 Value Prediction 的 baseline 性能相同。</li>
+<li><strong>大于 1.0</strong> 表示加速。</li>
+<li><strong>小于 1.0</strong> 表示减速。</li>
+</ul>
+<li>图例包含 4 类单一 Value Predictor：</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>图例</th>
+<th>Predictor</th>
+<th>类型</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>黑色实心柱</td>
+<td><strong>LVP</strong></td>
+<td>Context/last-value based</td>
+<td>使用上一结果作为预测值</td>
+</tr>
+<tr>
+<td>白色柱</td>
+<td><strong>2D-Str</strong></td>
+<td>Computational predictor</td>
+<td>2-delta Stride predictor</td>
+</tr>
+<tr>
+<td>黑白纹理柱</td>
+<td><strong>o4-FCM</strong></td>
+<td>Context-based predictor</td>
+<td>order-4 Finite Context Method</td>
+</tr>
+<tr>
+<td>灰色纹理柱</td>
+<td><strong>VTAGE</strong></td>
+<td>Global-history context predictor</td>
+<td>基于 global branch history/path history 的 TAGE-like value predictor</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>核心观察</strong></li>
+<ul>
+<li><strong>Baseline counters 下性能波动很大</strong>。</li>
+<li>虽然很多 predictor 在若干 benchmark 上能获得明显加速，但也存在明显减速。</li>
+<li>这说明普通 3-bit confidence counter 的 accuracy 不足以支撑 <strong>commit-time validation</strong>。</li>
+<li>因为 <strong>squashing at commit</strong> 的 misprediction penalty 很高，一旦出现少量 value misprediction，就可能抵消正确预测带来的收益。</li>
+<li>该图的主要作用是证明：<strong>仅靠传统 confidence counter，Value Prediction 在实际 pipeline 中并不稳定</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>总体性能趋势</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>现象</th>
+<th>说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>部分 benchmark 加速显著</strong></td>
+<td>如 173.applu、401.bzip2、403.gcc、464.h264ref</td>
+</tr>
+<tr>
+<td><strong>部分 benchmark 减速明显</strong></td>
+<td>如 186.crafty、255.vortex、416.gamess、444.namd、458.sjeng</td>
+</tr>
+<tr>
+<td><strong>不同 predictor 优势互补</strong></td>
+<td>没有单一 predictor 在所有程序上最优</td>
+</tr>
+<tr>
+<td><strong>VTAGE 表现较强但不稳定</strong></td>
+<td>在 applu、gcc、h264ref 等程序上优势明显，但在 crafty、sjeng 等存在减速</td>
+</tr>
+<tr>
+<td><strong>2D-Str 在某些程序上突出</strong></td>
+<td>如 wupwise、bzip2，说明 stride pattern 对部分 workload 很有效</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>按 benchmark 的近似表现分析</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">LVP</th>
+<th style="text-align:right">2D-Str</th>
+<th style="text-align:right">o4-FCM</th>
+<th style="text-align:right">VTAGE</th>
+<th>主要结论</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td>几乎无收益，Value Prediction 潜力低或覆盖不足</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">≈1.18</td>
+<td style="text-align:right">≈1.22</td>
+<td style="text-align:right">≈1.17</td>
+<td style="text-align:right">≈1.18</td>
+<td><strong>2D-Str 最优</strong>，存在明显 stride-like value locality</td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">≈1.22</td>
+<td style="text-align:right">≈1.22</td>
+<td style="text-align:right">≈1.05</td>
+<td style="text-align:right">≈1.41</td>
+<td><strong>VTAGE 显著最优</strong>，control-flow context 对值预测有效</td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">≈1.03</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.04</td>
+<td>小幅收益，预测贡献有限</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">≈1.10</td>
+<td style="text-align:right">≈1.05</td>
+<td style="text-align:right">≈1.12</td>
+<td style="text-align:right">≈1.12</td>
+<td>多种 predictor 均有收益，VTAGE/o4-FCM 较好</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">≈0.95</td>
+<td style="text-align:right">≈0.95</td>
+<td style="text-align:right">≈0.95</td>
+<td style="text-align:right">≈0.83</td>
+<td><strong>明显减速</strong>，VTAGE 受 misprediction penalty 影响严重</td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.02</td>
+<td>收益极小</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.87</td>
+<td style="text-align:right">≈0.98</td>
+<td>o4-FCM 明显不佳，可能存在错误上下文匹配或低 accuracy</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">≈1.12</td>
+<td style="text-align:right">≈1.42</td>
+<td style="text-align:right">≈1.10</td>
+<td style="text-align:right">≈1.16</td>
+<td><strong>2D-Str 大幅领先</strong>，stride predictor 很适合该程序</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.20</td>
+<td><strong>VTAGE 明显最优</strong>，global control-flow history 有价值</td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">≈0.88</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.88</td>
+<td style="text-align:right">≈1.00</td>
+<td>LVP/o4-FCM 减速，2D-Str/VTAGE 基本持平</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.02</td>
+<td>小幅收益</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈1.00</td>
+<td>基本无收益</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈0.80</td>
+<td style="text-align:right">≈1.03</td>
+<td>o4-FCM 明显减速，VTAGE 小幅收益</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.96</td>
+<td>VTAGE 小幅减速</td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.80</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.03</td>
+<td>2D-Str 明显减速，stride assumption 不适合</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">≈0.94</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈0.91</td>
+<td style="text-align:right">≈0.87</td>
+<td>多数 predictor 减速，value misprediction 成本高</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.03</td>
+<td style="text-align:right">≈1.24</td>
+<td style="text-align:right">≈1.36</td>
+<td><strong>VTAGE 最优，o4-FCM 次优</strong>，context-based predictor 效果好</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td>基本无变化</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>最显著加速点</strong></li>
+<ul>
+<li><strong>173.applu + VTAGE：约 1.4×</strong></li>
+<ul>
+<li>说明该程序中存在较强的 <strong>control-flow-correlated value locality</strong>。</li>
+<li>VTAGE 利用 <strong>global branch history</strong> 捕获了传统 local predictor 难以捕获的模式。</li>
+</ul>
+<li><strong>401.bzip2 + 2D-Str：约 1.42×</strong></li>
+<ul>
+<li>说明 bzip2 中有大量符合 <strong>2-delta stride</strong> 的值序列。</li>
+<li>Computational predictor 在这种规则数值变化场景下优势明显。</li>
+</ul>
+<li><strong>464.h264ref + VTAGE：约 1.35×</strong></li>
+<ul>
+<li>说明 h264ref 中 value pattern 与控制流上下文高度相关。</li>
+<li>o4-FCM 也有明显收益，但低于 VTAGE。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>最明显减速点</strong></li>
+<ul>
+<li><strong>186.crafty + VTAGE：约 0.83×</strong></li>
+<ul>
+<li>这是图中最严重的减速之一。</li>
+<li>说明在普通 3-bit counter 下，VTAGE 对 crafty 的错误预测仍然过多。</li>
+<li>在 <strong>commit-time squashing</strong> 下，每次 misprediction 的恢复代价很大，导致性能严重下降。</li>
+</ul>
+<li><strong>444.namd + o4-FCM：约 0.80×</strong></li>
+<ul>
+<li>o4-FCM 虽然可能有较高 coverage，但 confidence 不足时会引入高代价错误预测。</li>
+<li>这也体现出 <strong>coverage 高不等于 performance 高</strong>。</li>
+</ul>
+<li><strong>456.hmmer + 2D-Str：约 0.80×</strong></li>
+<ul>
+<li>说明该程序中的值变化不适合 2D-stride 模型。</li>
+<li>Stride predictor 在错误模式下可能产生稳定但错误的高置信预测。</li>
+</ul>
+<li><strong>458.sjeng + VTAGE/o4-FCM/LVP：均有减速</strong></li>
+<ul>
+<li>表明该程序对 Value Prediction 不友好，或者普通 confidence counter 无法有效过滤低质量预测。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>不同 predictor 的对比</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Predictor</th>
+<th>优势</th>
+<th>劣势</th>
+<th>图中表现</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>硬件简单，预测延迟低</td>
+<td>只能捕获 last-value locality</td>
+<td>整体较保守，少数 benchmark 有收益，也有轻微减速</td>
+</tr>
+<tr>
+<td><strong>2D-Str</strong></td>
+<td>擅长规则数值递增/递减模式</td>
+<td>对非 stride pattern 容易误判</td>
+<td>在 bzip2、wupwise 表现突出，但 hmmer 明显减速</td>
+</tr>
+<tr>
+<td><strong>o4-FCM</strong></td>
+<td>可捕获 local value history pattern</td>
+<td>两级访问复杂，学习慢，back-to-back prediction 难实现</td>
+<td>h264ref 有收益，但 namd、vortex、sjeng 减速明显</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>利用 global branch history，适合 control-flow dependent values</td>
+<td>baseline counter 下仍可能误预测</td>
+<td>applu、gcc、h264ref 表现突出，但 crafty、sjeng 减速</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么 baseline counters 会导致减速</strong></li>
+<ul>
+<li>普通 <strong>3-bit confidence counter</strong> 的机制是：</li>
+<ul>
+<li>正确预测时 counter 增加。</li>
+<li>错误预测时 counter reset。</li>
+<li>counter 饱和时才使用预测。</li>
+</ul>
+<li>但问题在于：</li>
+<ul>
+<li>对 commit-time validation 来说，<strong>99% accuracy 可能仍然不够</strong>。</li>
+<li>每次 value misprediction 可能导致大量后续指令被 squash。</li>
+<li>正确预测单次收益通常较小，而错误预测单次代价很大。</li>
+</ul>
+<li>因此，即使 predictor 的平均 accuracy 看似较高，也可能出现：</li>
+<ul>
+<li><strong>小量错误预测 × 高恢复代价 &gt; 大量正确预测 × 小收益</strong>。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文论点的关系</strong></li>
+<ul>
+<li>该图支撑论文的第一个核心论点：</li>
+<ul>
+<li><strong>传统 confidence estimation 不足以让 Value Prediction 在实际高代价恢复机制下稳定获益</strong>。</li>
+</ul>
+<li>它为后续 Figure 4(b) 引入 <strong>FPC</strong> 做铺垫。</li>
+<li>论文随后表明：</li>
+<ul>
+<li>使用 <strong>Forward Probabilistic Counters</strong> 后，accuracy 可提升到 <strong>&gt;99.7%</strong>。</li>
+<li>虽然 coverage 会下降，但整体 performance 更稳定。</li>
+<li>commit-time squashing 也能接近 ideal selective reissue 的效果。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>关于 VTAGE 的解读</strong></li>
+<ul>
+<li>图中 VTAGE 不是在所有 benchmark 上都最优，但它在几个关键程序上表现非常强：</li>
+<ul>
+<li><strong>173.applu</strong></li>
+<li><strong>403.gcc</strong></li>
+<li><strong>464.h264ref</strong></li>
+</ul>
+<li>这说明：</li>
+<ul>
+<li>用 <strong>global branch history</strong> 预测数据值是有效方向。</li>
+<li>很多值并不只依赖局部 value history，也可能依赖控制流路径。</li>
+</ul>
+<li>但 baseline counter 下，VTAGE 仍会在一些程序中出现明显减速：</li>
+<ul>
+<li><strong>186.crafty</strong></li>
+<li><strong>458.sjeng</strong></li>
+</ul>
+<li>因此 VTAGE 的实用性需要和 <strong>FPC confidence filtering</strong> 结合。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>关于 o4-FCM 的解读</strong></li>
+<ul>
+<li>o4-FCM 在图中表现并不稳定。</li>
+<li>虽然它是经典 context-based value predictor，但存在两个问题：</li>
+<ul>
+<li><strong>硬件实现复杂</strong>：需要维护 local value history，并进行二级表访问。</li>
+<li><strong>预测 back-to-back occurrences 困难</strong>： tight loop 中连续出现同一指令时，critical path 很长。</li>
+</ul>
+<li>图中它相对 VTAGE 没有明显性能优势，甚至在多个程序中更差。</li>
+<li>这支持论文观点：</li>
+<ul>
+<li><strong>VTAGE 是比 o4-FCM 更实际的 context-based predictor</strong>。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>关于 2D-Str 的解读</strong></li>
+<ul>
+<li>2D-Str 在某些程序上非常强，例如：</li>
+<ul>
+<li><strong>401.bzip2</strong></li>
+<li><strong>168.wupwise</strong></li>
+</ul>
+<li>这说明 computational predictor 与 context-based predictor 捕获的是不同类型的 value locality。</li>
+<li>但它也会在不适合 stride pattern 的程序中严重减速，例如：</li>
+<ul>
+<li><strong>456.hmmer</strong></li>
+</ul>
+<li>因此论文后续提出 hybrid：</li>
+<ul>
+<li><strong>VTAGE + 2D-Stride</strong></li>
+</ul>
+<li>这种组合可以互补：</li>
+<ul>
+<li>VTAGE 捕获 control-flow-correlated values。</li>
+<li>2D-Str 捕获 arithmetic/stride patterns。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>该图的关键结论</strong></li>
+<ul>
+<li><strong>单一 predictor 没有绝对优势</strong>。</li>
+<li><strong>普通 3-bit confidence counter 不足以保障实际性能</strong>。</li>
+<li><strong>commit-time validation 对 accuracy 极其敏感</strong>。</li>
+<li><strong>VTAGE 在部分程序上潜力很大，但必须配合更强 confidence mechanism</strong>。</li>
+<li><strong>2D-Str 与 VTAGE 具有互补性，适合构成 hybrid predictor</strong>。</li>
+<li><strong>o4-FCM 的收益不足以抵消其复杂硬件实现问题</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>一句话总结</strong></li>
+<ul>
+<li>该图说明：在 <strong>squashing at commit</strong> 这种高代价恢复机制下，传统 baseline confidence counter 会让 Value Prediction 表现不稳定；虽然 <strong>VTAGE</strong> 和 <strong>2D-Str</strong> 在部分 benchmark 上有显著潜力，但必须引入 <strong>FPC</strong> 这类更严格的 confidence estimation 才能使 Value Prediction 变得 practical。</li>
+</ul>
+</ul>
+<h3 id="c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1jpg">c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg<a class="anchor" href="#c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1jpg">#</a></h3>
+<figure><img src="../images/c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg" alt="c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型</strong>：该图是论文 Figure 4 的子图 <strong>“(b) FPC”</strong>，展示在采用 <strong>Forward Probabilistic Counters, FPC</strong> 置信机制后，不同 <strong>Value Predictor</strong> 在 <strong>squashing at commit</strong> 恢复机制下相对 baseline processor 的 <strong>speedup</strong>。</li>
+</ul>
+<ul>
+<li><strong>坐标含义</strong>：</li>
+<ul>
+<li><strong>横轴</strong>：SPEC’00 / SPEC’06 benchmark，包括 integer 与 floating-point 程序。</li>
+<li><strong>纵轴</strong>：相对 baseline 的性能加速比，范围约为 <strong>0.9 到 1.7</strong>。</li>
+<li><strong>水平虚线</strong>：以 0.1 为间隔的 speedup 参考线。</li>
+<li><strong>1.0 水平线</strong>：表示与 baseline 性能相同。</li>
+<li><strong>柱状组</strong>：每个 benchmark 下有多根柱，代表不同 Value Prediction 方案，结合论文上下文应对应：</li>
+<ul>
+<li><strong>LVP</strong></li>
+<li><strong>2D-Stride</strong></li>
+<li><strong>o4-FCM</strong></li>
+<li><strong>VTAGE</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>核心结论</strong>：</li>
+<ul>
+<li><strong>FPC 显著抑制了错误预测带来的性能损失</strong>。</li>
+<li>大多数 benchmark 的 speedup 都在 <strong>1.0 以上或接近 1.0</strong>，说明使用 FPC 后，即使采用代价较高的 <strong>commit-time validation + pipeline squashing</strong>，Value Prediction 仍基本不会造成明显 slowdown。</li>
+<li>性能提升高度依赖 benchmark，少数程序获得显著收益，多数程序收益较小。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>整体性能分布</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>性能区间</th>
+<th style="text-align:right">benchmark 表现</th>
+<th>解释</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>高收益，&gt;1.3×</strong></td>
+<td style="text-align:right"><strong>173.applu</strong>, <strong>464.h264</strong>, 部分 <strong>401.bzip2</strong></td>
+<td>数据依赖链较长，Value Prediction 能有效缩短关键路径</td>
+</tr>
+<tr>
+<td><strong>中等收益，1.1×–1.3×</strong></td>
+<td style="text-align:right"><strong>168.wupwise</strong>, <strong>179.art</strong>, <strong>403.gcc</strong>, <strong>416.gamess</strong></td>
+<td>部分预测器能捕获稳定值模式或控制流相关模式</td>
+</tr>
+<tr>
+<td><strong>轻微收益，1.0×–1.1×</strong></td>
+<td style="text-align:right"><strong>175.vpr</strong>, <strong>197.parser</strong>, <strong>444.namd</strong>, <strong>456.hmmer</strong> 等</td>
+<td>可预测值存在，但对关键路径贡献有限</td>
+</tr>
+<tr>
+<td><strong>几乎无收益，≈1.0×</strong></td>
+<td style="text-align:right"><strong>164.gzip</strong>, <strong>186.crafty</strong>, <strong>255.vortex</strong>, <strong>429.mcf</strong>, <strong>433.milc</strong>, <strong>445.gobmk</strong>, <strong>458.sjeng</strong>, <strong>470.lbm</strong></td>
+<td>预测覆盖率低、预测结果不在关键路径上，或程序瓶颈不在数据依赖</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>显著 benchmark 分析</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th>视觉观察</th>
+<th>分析</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>173.applu</strong></td>
+<td>最高柱约 <strong>1.6×+</strong></td>
+<td>是图中最明显的受益者之一，说明该程序存在大量可被 Value Prediction 打破的 true data dependencies</td>
+</tr>
+<tr>
+<td><strong>464.h264</strong></td>
+<td>最高柱约 <strong>1.3×+</strong></td>
+<td>VTAGE 或混合效果可能较好，说明控制流相关值或重复值模式较明显</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td>某一预测器柱接近 <strong>1.5×</strong>，但其他柱较低</td>
+<td>说明不同预测器之间差异很大，特定值模式更适合某类 predictor</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td>多个柱约 <strong>1.15×–1.22×</strong></td>
+<td>多种预测器都能稳定带来收益，可能存在较规则的数值模式</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td>某些柱约 <strong>1.15×</strong></td>
+<td>VTAGE 类基于 global branch history 的方法可能更有效</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td>柱略低于或接近 <strong>1.0×</strong></td>
+<td>即使有 FPC，仍可能出现极小 slowdown，但幅度很小</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td>基本为 <strong>1.0×</strong></td>
+<td>Value Prediction 对该 slice 几乎无帮助，可能主要受内存带宽或规则 streaming 行为限制</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>预测器间差异</strong>：</li>
+<ul>
+<li><strong>2D-Stride</strong> 在某些程序上表现突出，例如 <strong>168.wupwise</strong>、可能的 <strong>401.bzip2</strong>，说明这些程序存在明显的 stride-like value pattern。</li>
+<li><strong>VTAGE</strong> 在 <strong>173.applu、403.gcc、464.h264</strong> 等程序上表现较强，符合论文观点：<strong>VTAGE 能利用 global branch history 捕获控制流相关值模式</strong>。</li>
+<li><strong>o4-FCM</strong> 整体并未明显压倒 VTAGE，且论文指出其实际硬件实现还存在 back-to-back prediction 的关键路径问题，因此图中的 o4-FCM 性能可能偏乐观。</li>
+<li><strong>LVP</strong> 通常作为简单 baseline predictor，在部分程序有效，但整体能力有限。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FPC 的作用体现</strong>：</li>
+<ul>
+<li>与论文中 Figure 4(a) 的 baseline counters 相比，Figure 4(b) 显示：</li>
+<ul>
+<li><strong>slowdown 基本消失</strong>；</li>
+<li>speedup 更稳定；</li>
+<li>predictor 不再因为少量 misprediction 在 commit-time squash 下被严重惩罚。</li>
+</ul>
+<li>这说明 FPC 牺牲部分 coverage，换取极高 accuracy，是本文的重要设计点。</li>
+<li>论文正文指出，FPC 后 accuracy 通常达到 <strong>&gt;0.997</strong>，因此即使单次 misprediction penalty 很高，也不会频繁触发恢复。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与恢复机制的关系</strong>：</li>
+<ul>
+<li>图中使用的是 <strong>squashing at commit</strong>，这是较简单但惩罚较高的恢复机制。</li>
+<li>图中仍能获得正收益，说明：</li>
+<ul>
+<li><strong>高 accuracy 比复杂 selective reissue 更关键</strong>；</li>
+<li>如果 prediction confidence 足够严格，复杂的 out-of-order selective reissue 机制收益有限；</li>
+<li>Value Prediction 可以主要限制在 <strong>in-order front-end prediction</strong> 与 <strong>in-order back-end validation/training</strong>，减少对 OoO engine 的侵入。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>关键现象总结</strong>：</li>
+<ul>
+<li><strong>FPC 后，Value Prediction 的风险显著降低</strong>。</li>
+<li><strong>性能提升并不均匀</strong>，高度依赖程序的数据值局部性、控制流相关性和关键路径结构。</li>
+<li><strong>VTAGE 是实用性更强的 context-based predictor</strong>，因为它利用 branch history，不依赖 local value history，因此更容易支持 tight loop 中的 back-to-back prediction。</li>
+<li><strong>最高收益接近 65%</strong>，出现在 <strong>173.applu</strong> 附近，与论文摘要中“up to 65% speedup”的说法一致。</li>
+<li>多数 benchmark 的收益小于 <strong>5%–10%</strong>，说明 Value Prediction 并非普适大幅加速技术，但对特定应用非常有效。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>一句话概括</strong>：</li>
+<ul>
+<li><strong>该图证明：在 FPC 高置信机制保护下，即使采用简单的 commit-time squash 恢复策略，Value Prediction 仍能在多数程序中避免性能损失，并在 applu、h264、bzip2 等程序上获得显著加速。</strong></li>
+</ul>
+</ul>
+<h3 id="9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5jpg">9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5.jpg<a class="anchor" href="#9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5jpg">#</a></h3>
+<figure><img src="../images/9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5.jpg" alt="9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型与上下文</strong></li>
+<ul>
+<li>该图是论文中用于展示 <strong>不同 Value Predictor 在使用 FPC confidence counters 后的性能表现</strong> 的柱状图。</li>
+<li>对应实验场景是：<strong>value misprediction recovery 采用 squashing at commit</strong>。</li>
+<li>纵轴是 <strong>Speedup over baseline</strong>，即相对于不使用 Value Prediction 的基线处理器的加速比。</li>
+<li>横轴是 SPEC CPU2000 / CPU2006 的 19 个 benchmark。</li>
+<li>图例包含 4 种预测器：</li>
+<ul>
+<li><strong>LVP</strong>：Last Value Predictor</li>
+<li><strong>2D-Str</strong>：2-delta Stride Predictor</li>
+<li><strong>o4-FCM</strong>：order-4 Finite Context Method Predictor</li>
+<li><strong>VTAGE</strong>：Value TAGE Predictor</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>坐标与读图方式</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>元素</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Y 轴范围</strong></td>
+<td>约 <strong>0.9 到 1.7</strong></td>
+</tr>
+<tr>
+<td><strong>Y=1.0 实线</strong></td>
+<td>与 baseline 性能相同</td>
+</tr>
+<tr>
+<td><strong>高于 1.0</strong></td>
+<td>Value Prediction 带来性能提升</td>
+</tr>
+<tr>
+<td><strong>低于 1.0</strong></td>
+<td>Value Prediction 造成性能下降</td>
+</tr>
+<tr>
+<td><strong>虚线网格</strong></td>
+<td>约每 <strong>0.1 speedup</strong> 一个刻度</td>
+</tr>
+<tr>
+<td><strong>每组 4 根柱</strong></td>
+<td>同一 benchmark 下 4 种 predictor 的 speedup 对比</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>总体结论</strong></li>
+<ul>
+<li><strong>绝大多数 benchmark 的 speedup ≥ 1.0</strong>，说明在使用 <strong>FPC</strong> 后，commit-time squashing 的高误预测代价基本被高准确率抵消。</li>
+<li><strong>VTAGE 在多个 benchmark 上表现突出</strong>，尤其是 <strong>173.applu、403.gcc、416.gamess、464.h264ref</strong>。</li>
+<li><strong>2D-Str 在 401.bzip2 上表现极强</strong>，明显超过其他 predictor。</li>
+<li><strong>单一 predictor 没有在所有 workload 上占优</strong>，这也是论文后续提出 <strong>hybrid predictor</strong> 的动机。</li>
+<li>多数 benchmark 的提升较小，约 <strong>0%–10%</strong>；少数 benchmark 有显著提升，最高接近 <strong>1.65×</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>各 benchmark 近似表现</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">LVP</th>
+<th style="text-align:right">2D-Str</th>
+<th style="text-align:right">o4-FCM</th>
+<th style="text-align:right">VTAGE</th>
+<th>主要观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.01</td>
+<td>几乎无提升</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">~1.15</td>
+<td style="text-align:right">~1.22</td>
+<td style="text-align:right">~1.17</td>
+<td style="text-align:right">~1.17</td>
+<td><strong>2D-Str 最好</strong></td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">~1.45</td>
+<td style="text-align:right">~1.46</td>
+<td style="text-align:right">~1.43</td>
+<td style="text-align:right">~1.64</td>
+<td><strong>VTAGE 显著领先</strong></td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">~1.06</td>
+<td style="text-align:right">~1.06</td>
+<td style="text-align:right">~1.06</td>
+<td style="text-align:right">~1.08</td>
+<td>小幅提升</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">~1.13</td>
+<td style="text-align:right">~1.14</td>
+<td style="text-align:right">~1.08</td>
+<td style="text-align:right">~1.14</td>
+<td>LVP / 2D-Str / VTAGE 接近</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">~1.05</td>
+<td style="text-align:right">~1.05</td>
+<td style="text-align:right">~1.04</td>
+<td style="text-align:right">~1.12</td>
+<td><strong>VTAGE 最好</strong></td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.03</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.07</td>
+<td><strong>VTAGE 最好</strong></td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~0.99</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.02</td>
+<td>基本无收益</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">~1.04</td>
+<td style="text-align:right">~1.46</td>
+<td style="text-align:right">~1.05</td>
+<td style="text-align:right">~1.18</td>
+<td><strong>2D-Str 大幅领先</strong></td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.02</td>
+<td style="text-align:right">~1.25</td>
+<td><strong>VTAGE 明显领先</strong></td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">~1.07</td>
+<td style="text-align:right">~1.11</td>
+<td style="text-align:right">~1.14</td>
+<td style="text-align:right">~1.21</td>
+<td><strong>VTAGE 最好</strong></td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.02</td>
+<td>几乎无提升</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">~0.99</td>
+<td style="text-align:right">~0.99</td>
+<td style="text-align:right">~0.99</td>
+<td style="text-align:right">~0.99</td>
+<td>轻微 slowdown</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.02</td>
+<td>极小提升</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.04</td>
+<td style="text-align:right">~1.04</td>
+<td>o4-FCM / VTAGE 略优</td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.01</td>
+<td style="text-align:right">~1.03</td>
+<td style="text-align:right">~1.05</td>
+<td><strong>VTAGE 略优</strong></td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.01</td>
+<td>几乎无提升</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">~1.07</td>
+<td style="text-align:right">~1.14</td>
+<td style="text-align:right">~1.36</td>
+<td style="text-align:right">~1.49</td>
+<td><strong>VTAGE 最好，o4-FCM 次之</strong></td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td style="text-align:right">~1.00</td>
+<td>无明显收益</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>性能提升最显著的 benchmark</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">排名</th>
+<th>Benchmark</th>
+<th>最佳 predictor</th>
+<th style="text-align:right">近似最高 speedup</th>
+<th>解释</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td><strong>173.applu</strong></td>
+<td><strong>VTAGE</strong></td>
+<td style="text-align:right"><strong>~1.64×</strong></td>
+<td>控制流相关 value pattern 明显，VTAGE 能利用 global branch history</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td><strong>464.h264ref</strong></td>
+<td><strong>VTAGE</strong></td>
+<td style="text-align:right"><strong>~1.49×</strong></td>
+<td>存在可预测且关键路径相关的数据值</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td><strong>401.bzip2</strong></td>
+<td><strong>2D-Str</strong></td>
+<td style="text-align:right"><strong>~1.46×</strong></td>
+<td>stride-like value locality 很强</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td><strong>403.gcc</strong></td>
+<td><strong>VTAGE</strong></td>
+<td style="text-align:right"><strong>~1.25×</strong></td>
+<td>VTAGE 捕获控制流上下文相关值</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td><strong>416.gamess</strong></td>
+<td><strong>VTAGE</strong></td>
+<td style="text-align:right"><strong>~1.21×</strong></td>
+<td>VTAGE 优于传统 context-based predictor</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>不同 predictor 的行为差异</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Predictor</th>
+<th>图中表现</th>
+<th>技术原因</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>多数 benchmark 小幅提升，少数如 applu 有明显收益</td>
+<td>只预测 last value，结构简单，但表达能力有限</td>
+</tr>
+<tr>
+<td><strong>2D-Str</strong></td>
+<td>在 <strong>wupwise、bzip2</strong> 表现突出</td>
+<td>对稳定 stride / delta pattern 敏感</td>
+</tr>
+<tr>
+<td><strong>o4-FCM</strong></td>
+<td>在 <strong>h264ref</strong> 表现较好，但整体不稳定</td>
+<td>利用 local value history，但学习慢、覆盖率受限</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>多数重要提升点上最强</td>
+<td>利用 <strong>global branch history + path history</strong>，更适合控制流相关 value pattern</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>VTAGE 的关键优势</strong></li>
+<ul>
+<li><strong>在 173.applu 上接近 1.65× speedup</strong>，是全图最高。</li>
+<li><strong>在 403.gcc、416.gamess、464.h264ref 上明显优于 LVP、2D-Str 和 o4-FCM</strong>。</li>
+<li>相比 <strong>o4-FCM</strong>，VTAGE 不依赖最近若干次本地 value history，因此更容易支持 <strong>back-to-back prediction</strong>。</li>
+<li>VTAGE 的预测访问可以跨多个 pipeline cycle 完成，更适合实际硬件实现。</li>
+<li>图中结果支持论文观点：<strong>VTAGE 是比 FCM 更实用的 context-based value predictor</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>2D-Str 的关键优势</strong></li>
+<ul>
+<li><strong>401.bzip2 是最典型案例</strong>：</li>
+<ul>
+<li>2D-Str 约 <strong>1.46×</strong></li>
+<li>VTAGE 约 <strong>1.18×</strong></li>
+<li>LVP / o4-FCM 仅约 <strong>1.04–1.05×</strong></li>
+</ul>
+<li>说明某些程序存在强烈的 <strong>stride-based value locality</strong>。</li>
+<li>这也说明 <strong>VTAGE 与 Stride predictor 具有互补性</strong>，单独使用 VTAGE 并不能覆盖所有可预测模式。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>o4-FCM 的表现解读</strong></li>
+<ul>
+<li>o4-FCM 在 <strong>464.h264ref</strong> 上达到约 <strong>1.36×</strong>，说明 local value history 在部分 workload 中有效。</li>
+<li>但在多数 benchmark 上，o4-FCM 与 LVP 接近，甚至不如 VTAGE。</li>
+<li>原因包括：</li>
+<ul>
+<li><strong>local value history 需要更长学习时间</strong></li>
+<li>confidence gating 后 coverage 下降</li>
+<li>两级查表结构对 back-to-back occurrence 不友好</li>
+<li>实际硬件中 o4-FCM 延迟可能更难满足</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>低收益 benchmark 分析</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th>现象</th>
+<th>可能原因</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td>几乎无提升</td>
+<td>可预测值少，或预测值不在关键路径</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td>几乎无提升</td>
+<td>性能可能主要受 memory latency 限制</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td>轻微 slowdown</td>
+<td>即使 FPC 降低误预测，收益仍不足以抵消开销</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td>几乎无提升</td>
+<td>value prediction 覆盖或关键性不足</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td>无明显收益</td>
+<td>baseline 已受其他瓶颈限制，VP 难发挥</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>与 FPC 的关系</strong></li>
+<ul>
+<li>该图体现的是使用 <strong>FPC / Forward Probabilistic Counters</strong> 后的结果。</li>
+<li>FPC 的作用是：</li>
+<ul>
+<li><strong>只在 confidence counter 饱和时使用预测</strong></li>
+<li>正确预测时以概率方式递增 counter</li>
+<li>误预测时 reset counter</li>
+</ul>
+<li>效果是：</li>
+<ul>
+<li>大幅降低 value misprediction rate</li>
+<li>牺牲部分 coverage</li>
+<li>使得 <strong>commit-time validation</strong> 成为可行方案</li>
+</ul>
+<li>图中几乎没有严重 slowdown，说明 <strong>高准确率比高覆盖率更关键</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与 commit-time squashing 的关系</strong></li>
+<ul>
+<li>commit-time squashing 的误预测代价很高，通常比 execution-time recovery 更昂贵。</li>
+<li>如果 predictor 准确率不够，少量误预测即可抵消正确预测收益。</li>
+<li>图中结果说明：</li>
+<ul>
+<li>使用 FPC 后，误预测数量被压低；</li>
+<li>即使采用简单但代价较高的 <strong>squashing at commit</strong>，仍可获得明显 speedup；</li>
+<li>因而无需复杂的 <strong>selective reissue</strong> 机制也能实现实用 Value Prediction。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>图中最重要的信息</strong></li>
+<ul>
+<li><strong>VTAGE 是整体最有竞争力的单一 predictor</strong>。</li>
+<li><strong>2D-Str 在 stride-dominant workload 上不可替代</strong>。</li>
+<li><strong>o4-FCM 没有显示出足够优势来证明其复杂实现成本合理</strong>。</li>
+<li><strong>FPC 使得所有 predictor 的性能更稳定</strong>，避免了传统 Value Prediction 中误预测代价过高的问题。</li>
+<li><strong>不同 predictor 的优势 workload 不同，因此 hybrid predictor 是自然方向</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>论文论点支撑关系</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>图中证据</th>
+<th>支撑的论文观点</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>多数柱子高于 1.0</td>
+<td>Value Prediction 在现代 aggressive OoO pipeline 中仍有潜力</td>
+</tr>
+<tr>
+<td>VTAGE 多次领先</td>
+<td>global branch history 可有效用于 value prediction</td>
+</tr>
+<tr>
+<td>2D-Str 在 bzip2 极强</td>
+<td>computational predictor 与 context-based predictor 互补</td>
+</tr>
+<tr>
+<td>几乎无严重 slowdown</td>
+<td>FPC 能将误预测风险控制在可接受范围</td>
+</tr>
+<tr>
+<td>o4-FCM 整体不占优</td>
+<td>local value history predictor 的复杂性未必值得</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>最终解读</strong></li>
+<ul>
+<li>这张图的核心结论是：<strong>在 FPC 提供超高置信度过滤后，Value Prediction 即使采用简单的 commit-time squashing recovery，也可以在多个 benchmark 上带来实际性能收益。</strong></li>
+<li><strong>VTAGE 是最值得关注的 predictor</strong>，因为它在性能和硬件可实现性之间取得较好平衡。</li>
+<li>但 <strong>VTAGE 并不能完全替代 2D-Str</strong>，二者覆盖的 value locality 类型不同。</li>
+<li>因此，图中结果直接引出了论文后续的结论：<strong>VTAGE + 2D-Stride hybrid predictor 是更实用、更高收益的设计方向。</strong></li>
+</ul>
+</ul>
+<h3 id="d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514jpg">d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514.jpg<a class="anchor" href="#d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514jpg">#</a></h3>
+<figure><img src="../images/d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514.jpg" alt="d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像类型与来源</strong></li>
+<ul>
+<li>该图是论文 Figure 4 的子图 <strong>“(b) FPC”</strong>。</li>
+<li>展示内容为：在使用 <strong>Forward Probabilistic Counters, FPC</strong> 作为置信度机制，并采用 <strong>squashing at commit</strong> 作为 value misprediction 恢复机制时，不同 <strong>Value Predictor</strong> 在 SPEC 基准上的 <strong>Speedup over baseline</strong>。</li>
+<li>纵轴为 <strong>Speedup</strong>，横轴为 19 个 SPEC’00 / SPEC’06 benchmark。</li>
+<li>横向实线 <strong>1.0</strong> 表示无加速基线；高于 1.0 表示性能提升，低于 1.0 表示性能下降。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中比较的预测器</strong></li>
+<ul>
+<li>每个 benchmark 通常包含 4 根柱，对应论文中 Figure 4 的几类单一预测器：</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>预测器</th>
+<th>英文名称</th>
+<th>类型</th>
+<th>主要特征</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>Last Value Predictor</td>
+<td>context/simple</td>
+<td>预测上一次出现的值</td>
+</tr>
+<tr>
+<td><strong>2D-Stride</strong></td>
+<td>2-delta Stride Predictor</td>
+<td>computational</td>
+<td>捕获 stride / delta 模式</td>
+</tr>
+<tr>
+<td><strong>o4-FCM</strong></td>
+<td>order-4 Finite Context Method</td>
+<td>context-based</td>
+<td>基于局部 value history</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>Value TAgged GEometric Predictor</td>
+<td>context-based/global history</td>
+<td>利用 global branch history 与 path history</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>核心结论</strong></li>
+<ul>
+<li><strong>FPC 显著抑制了误预测带来的性能损失</strong>。</li>
+<li>与普通 3-bit confidence counter 相比，FPC 将预测使用条件变得更严格，使整体准确率提升到论文所述的 <strong>&gt; 99.7%</strong> 量级。</li>
+<li>因为误预测极少，即便采用代价较高的 <strong>commit-time squashing</strong>，大多数 benchmark 仍能获得正收益或基本不亏损。</li>
+<li>图中几乎没有明显低于 1.0 的柱，说明 <strong>FPC 使 Value Prediction 在保守恢复机制下变得实用</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>整体速度提升分布</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>区间</th>
+<th>代表 benchmark</th>
+<th>观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>高收益，约 1.3×–1.65×</strong></td>
+<td><strong>173.applu</strong>, <strong>401.bzip2</strong>, <strong>464.h264ref</strong></td>
+<td>Value Prediction 效果显著</td>
+</tr>
+<tr>
+<td><strong>中等收益，约 1.1×–1.25×</strong></td>
+<td><strong>168.wupwise</strong>, <strong>403.gcc</strong>, <strong>416.gamess</strong></td>
+<td>部分预测器明显有效</td>
+</tr>
+<tr>
+<td><strong>小收益，约 1.02×–1.10×</strong></td>
+<td><strong>175.vpr</strong>, <strong>179.art</strong>, <strong>197.parser</strong>, <strong>456.hmmer</strong></td>
+<td>有一定收益但不突出</td>
+</tr>
+<tr>
+<td><strong>接近无收益，约 1.0×</strong></td>
+<td><strong>164.gzip</strong>, <strong>429.mcf</strong>, <strong>433.milc</strong>, <strong>458.sjeng</strong>, <strong>470.lbm</strong></td>
+<td>可预测值对性能关键路径贡献有限</td>
+</tr>
+<tr>
+<td><strong>轻微负收益或接近持平</strong></td>
+<td><strong>433.milc</strong> 等</td>
+<td>FPC 后负面影响很小</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>最突出的 benchmark 分析</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">图中表现</th>
+<th>可能原因</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">最高约 <strong>1.6×+</strong></td>
+<td>存在大量可预测且位于关键路径上的数据值</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">个别预测器约 <strong>1.45×</strong></td>
+<td>某些值模式非常适合特定预测器，尤其可能受益于 stride 或 context</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">最高约 <strong>1.4×</strong></td>
+<td>控制流相关或重复性数据模式明显，VTAGE/其他 predictor 可有效捕获</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">约 <strong>1.15×–1.2×</strong></td>
+<td>数值计算中存在较稳定 value locality</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">最高约 <strong>1.18×</strong></td>
+<td>控制流复杂，VTAGE 类预测可能有优势</td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">约 <strong>1.1×+</strong></td>
+<td>部分浮点计算数据值具有可预测性</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>不同预测器的表现差异</strong></li>
+<ul>
+<li><strong>不存在单一预测器在所有 benchmark 上绝对最优</strong>。</li>
+<li><strong>2D-Stride</strong> 在具有规则数值变化的程序中较强，例如部分科学计算或压缩类 workload。</li>
+<li><strong>VTAGE</strong> 在与控制流相关的数据值预测上更有优势，例如 <strong>gcc、gamess、h264ref</strong> 一类复杂控制流程序。</li>
+<li><strong>o4-FCM</strong> 在图中整体并不总是突出，说明局部 value history 虽然理论上强，但：</li>
+<ul>
+<li>学习模式较慢；</li>
+<li>对 tight loop 的 back-to-back prediction 实现复杂；</li>
+<li>覆盖率可能受置信度机制影响较大。</li>
+</ul>
+<li><strong>LVP</strong> 在部分程序中可以带来小幅收益，但表达能力有限。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FPC 的作用解读</strong></li>
+<ul>
+<li>FPC 的核心目标不是最大化 coverage，而是最大化 <strong>accuracy</strong>。</li>
+<li>图中性能提升说明：在 <strong>commit-time validation</strong> 下，减少误预测比盲目提高预测覆盖率更重要。</li>
+<li>FPC 通过概率方式缓慢提升 confidence counter，只有长期稳定正确的预测才会被使用。</li>
+<li>其效果可以概括为：</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>机制</th>
+<th>影响</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>降低误预测数量</strong></td>
+<td>减少昂贵的 pipeline squash</td>
+</tr>
+<tr>
+<td><strong>牺牲部分 coverage</strong></td>
+<td>一些不够稳定的预测不再使用</td>
+</tr>
+<tr>
+<td><strong>提高整体 accuracy</strong></td>
+<td>使 commit-time recovery 可接受</td>
+</tr>
+<tr>
+<td><strong>简化硬件恢复机制</strong></td>
+<td>不再强依赖复杂 selective reissue</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>与论文论点的关系</strong></li>
+<ul>
+<li>该图直接支撑论文第一个核心主张：</li>
+<ul>
+<li><strong>只要 confidence estimation 足够强，Value Prediction 可以不依赖复杂 selective reissue。</strong></li>
+</ul>
+<li>即使采用较保守的 <strong>squashing at commit</strong>，由于 FPC 将误预测率压低，大多数程序仍能获得性能收益。</li>
+<li>这说明 Value Prediction 的实用性瓶颈并不只是 predictor 本身，而是 <strong>confidence control + recovery cost</strong> 的平衡。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>为什么部分 benchmark 提升很小</strong></li>
+<ul>
+<li>图中如 <strong>164.gzip、429.mcf、433.milc、458.sjeng、470.lbm</strong> 基本接近 1.0。</li>
+<li>可能原因包括：</li>
+<ul>
+<li>可预测值不在关键路径上；</li>
+<li>程序瓶颈主要来自 memory latency、branch misprediction 或 cache behavior；</li>
+<li>FPC 过于保守导致 coverage 降低；</li>
+<li>数据值本身缺乏稳定模式；</li>
+<li>即便预测正确，也无法显著缩短依赖链。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>重要观察：高 coverage 不等于高 speedup</strong></li>
+<ul>
+<li>论文中指出，例如 <strong>namd</strong> 可能有较高 coverage，但 speedup 很小。</li>
+<li>图中也体现出类似现象：有些 benchmark 柱子接近 1.0，并不代表预测器完全无法预测，而是预测到的值对整体 IPC 改善有限。</li>
+<li>因此 Value Prediction 的收益取决于：</li>
+<ul>
+<li><strong>预测准确率 accuracy</strong></li>
+<li><strong>预测覆盖率 coverage</strong></li>
+<li><strong>被预测指令是否在 critical path</strong></li>
+<li><strong>误预测恢复成本</strong></li>
+<li><strong>基线处理器是否已有足够乱序能力隐藏延迟</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>对 VTAGE 的图像层面解读</strong></li>
+<ul>
+<li>VTAGE 在多个 benchmark 上表现稳定，特别是在控制流相关性明显的场景中较强。</li>
+<li>与 o4-FCM 相比，VTAGE 的优势不仅是性能，还包括实现可行性：</li>
+<ul>
+<li>不依赖 local value history；</li>
+<li>不需要追踪同一指令最近 n 次 speculative value；</li>
+<li>可以自然支持 <strong>back-to-back occurrences</strong>；</li>
+<li>预测访问可从 Fetch 到 Dispatch 跨多个周期完成。</li>
+</ul>
+<li>因此图中 VTAGE 的收益具有更强的实际工程意义。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图像传达的最终结论</strong></li>
+<ul>
+<li><strong>FPC + Value Prediction</strong> 在大多数 benchmark 上可以避免性能倒退。</li>
+<li><strong>commit-time squashing</strong> 虽然恢复代价高，但在 FPC 的高准确率保护下仍然可用。</li>
+<li><strong>VTAGE</strong> 是比传统 local-history context predictor 更实用的方向。</li>
+<li>单一 predictor 的收益有限且 workload-dependent，因此论文后续提出 <strong>hybrid predictor</strong> 是自然选择。</li>
+<li>该图是论文证明“实用 Value Prediction 可以重新被考虑用于未来高端处理器”的关键实验依据之一。</li>
+</ul>
+</ul>
+<h3 id="2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2bjpg">2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg<a class="anchor" href="#2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2bjpg">#</a></h3>
+<figure><img src="../images/2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg" alt="2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型与上下文</strong></li>
+<ul>
+<li>该图是论文 Figure 6 的子图 <strong>(a) Speedup</strong>。</li>
+<li>横轴为 SPEC’00 / SPEC’06 benchmark，纵轴为相对 baseline processor 的 <strong>Speedup</strong>。</li>
+<li>图中比较的是 <strong>VTAGE value predictor</strong> 在两种 confidence counter 机制下的性能：</li>
+<ul>
+<li><strong>Baseline</strong>：普通 3-bit saturating confidence counter。</li>
+<li><strong>FPC</strong>：Forward Probabilistic Counters。</li>
+</ul>
+<li>恢复机制为 <strong>squashing at commit</strong>，即 value misprediction 在提交阶段验证并通过流水线清空恢复。</li>
+<li>纵轴范围约为 <strong>0.8 到 1.7</strong>：</li>
+<ul>
+<li><strong>Speedup &gt; 1</strong> 表示加速。</li>
+<li><strong>Speedup = 1</strong> 表示基本无变化。</li>
+<li><strong>Speedup &lt; 1</strong> 表示性能下降。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>图例说明</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>图例</th>
+<th>含义</th>
+<th>视觉表示</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Baseline</strong></td>
+<td>普通 confidence counter</td>
+<td>黑色柱</td>
+</tr>
+<tr>
+<td><strong>FPC</strong></td>
+<td>Forward Probabilistic Counters</td>
+<td>白色柱</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>整体结论</strong></li>
+<ul>
+<li><strong>FPC 整体优于 Baseline counter</strong>。</li>
+<li><strong>Baseline counter 在部分 benchmark 上出现明显 slowdown</strong>，说明普通 3-bit confidence counter 的准确率不足以支撑高代价的 commit-time recovery。</li>
+<li><strong>FPC 显著降低 misprediction 带来的性能损失</strong>，多数 benchmark 上保持不低于 1 的 speedup。</li>
+<li>图中最突出的收益来自：</li>
+<ul>
+<li><strong>173.applu</strong></li>
+<li><strong>464.h264ref</strong></li>
+<li><strong>168.wupwise</strong></li>
+<li><strong>179.art</strong></li>
+</ul>
+<li>FPC 的核心价值不是单纯提高 coverage，而是通过牺牲部分 coverage 换取 <strong>极高 accuracy</strong>，从而让 <strong>squashing at commit</strong> 这种简单但高惩罚的恢复机制变得可行。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>各 benchmark 近似读数与趋势</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">Baseline VTAGE 近似 Speedup</th>
+<th style="text-align:right">FPC VTAGE 近似 Speedup</th>
+<th>主要观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">≈ 1.00</td>
+<td style="text-align:right">≈ 1.00</td>
+<td>基本无收益，VP 对该片段帮助有限</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">≈ 1.18</td>
+<td style="text-align:right">≈ 1.18</td>
+<td>两者相近，均有稳定收益</td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">≈ 1.41</td>
+<td style="text-align:right">≈ 1.62</td>
+<td><strong>FPC 显著提升，图中最高加速</strong></td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">≈ 1.03</td>
+<td style="text-align:right">≈ 1.09</td>
+<td>FPC 优于 Baseline，收益中等</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">≈ 1.12</td>
+<td style="text-align:right">≈ 1.14</td>
+<td>两者均有收益，FPC 略高</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">≈ 0.83</td>
+<td style="text-align:right">≈ 1.02</td>
+<td><strong>Baseline 明显 slowdown，FPC 修复性能损失</strong></td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">≈ 1.02</td>
+<td style="text-align:right">≈ 1.05</td>
+<td>FPC 小幅更好</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">≈ 0.95</td>
+<td style="text-align:right">≈ 1.00</td>
+<td><strong>Baseline 负收益，FPC 接近持平</strong></td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">≈ 1.16</td>
+<td style="text-align:right">≈ 1.13</td>
+<td>Baseline 略高，FPC 因降低 coverage 略损</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">≈ 1.20</td>
+<td style="text-align:right">≈ 1.16</td>
+<td>Baseline 略高，但 FPC 仍有明显收益</td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">≈ 1.01</td>
+<td style="text-align:right">≈ 1.09</td>
+<td>FPC 明显优于 Baseline</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">≈ 1.02</td>
+<td style="text-align:right">≈ 1.01</td>
+<td>基本持平</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">≈ 0.99</td>
+<td style="text-align:right">≈ 0.99</td>
+<td>FPC 仍有极轻微 slowdown</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">≈ 1.02</td>
+<td style="text-align:right">≈ 1.03</td>
+<td>小幅收益</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">≈ 0.96</td>
+<td style="text-align:right">≈ 1.00</td>
+<td><strong>FPC 消除 Baseline slowdown</strong></td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">≈ 1.02</td>
+<td style="text-align:right">≈ 1.02</td>
+<td>基本一致，小幅收益</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">≈ 0.87</td>
+<td style="text-align:right">≈ 1.00</td>
+<td><strong>Baseline 明显 slowdown，FPC 恢复到持平附近</strong></td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">≈ 1.35</td>
+<td style="text-align:right">≈ 1.33</td>
+<td>两者均有大幅收益，Baseline 略高</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">≈ 1.00</td>
+<td style="text-align:right">≈ 1.00</td>
+<td>基本无变化</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>最显著加速案例</strong></li>
+<ul>
+<li><strong>173.applu</strong></li>
+<ul>
+<li>Baseline 约 <strong>1.41×</strong>。</li>
+<li>FPC 约 <strong>1.62×</strong>。</li>
+<li>说明该 benchmark 中存在大量可被 VTAGE 捕获的 value locality / control-flow-correlated value pattern。</li>
+<li>FPC 在此不仅避免误预测损失，还保留了足够 coverage，因此收益最大。</li>
+</ul>
+<li><strong>464.h264ref</strong></li>
+<ul>
+<li>Baseline 和 FPC 都约 <strong>1.33×–1.35×</strong>。</li>
+<li>说明该 benchmark 对 value prediction 高度敏感，即使 FPC 稍微降低 coverage，仍保持强收益。</li>
+</ul>
+<li><strong>168.wupwise</strong></li>
+<ul>
+<li>两者均约 <strong>1.18×</strong>。</li>
+<li>FPC 没有明显额外收益，表明 Baseline counter 在该程序上已经较可靠。</li>
+</ul>
+<li><strong>403.gcc / 401.bzip2</strong></li>
+<ul>
+<li>均有约 <strong>13%–20%</strong> 的加速。</li>
+<li>Baseline 略高于 FPC，反映 FPC 的保守策略可能损失部分有用预测。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>明显 slowdown 被 FPC 修复的案例</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th>Baseline 问题</th>
+<th>FPC 效果</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td>Speedup 降至约 <strong>0.83</strong>，严重 slowdown</td>
+<td>恢复到约 <strong>1.02</strong></td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td>Speedup 约 <strong>0.95</strong></td>
+<td>接近 <strong>1.00</strong></td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td>Speedup 约 <strong>0.96</strong></td>
+<td>接近 <strong>1.00</strong></td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td>Speedup 约 <strong>0.87</strong>，明显 slowdown</td>
+<td>恢复到约 <strong>1.00</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>对 slowdown 的解释</strong></li>
+<ul>
+<li>在 <strong>squashing at commit</strong> 机制下，value misprediction 的代价很高。</li>
+<li>普通 Baseline counter 即使有较高 accuracy，例如 94%–99%，仍可能不足。</li>
+<li>当 misprediction 发生时：</li>
+<ul>
+<li>错误值可能已经影响大量后续指令。</li>
+<li>到 commit 才发现错误。</li>
+<li>需要清空大量流水线状态。</li>
+<li>recovery penalty 可能达到几十个 cycle。</li>
+</ul>
+<li>因此，<strong>少量 misprediction 就可能抵消大量正确预测带来的收益</strong>。</li>
+<li>FPC 通过更难达到 saturated confidence 状态，使 predictor 只在极高置信度时才使用预测。</li>
+<li>结果是：</li>
+<ul>
+<li><strong>coverage 降低</strong>。</li>
+<li><strong>accuracy 大幅提高</strong>。</li>
+<li>总体性能更稳定。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>FPC 与 Baseline 的核心差异</strong></li>
+<ul>
+<li>Baseline counter：</li>
+<ul>
+<li>正确预测后较快增加 confidence。</li>
+<li>容易较早进入 saturated 状态。</li>
+<li>coverage 较高。</li>
+<li>但 misprediction 更多。</li>
+</ul>
+<li>FPC：</li>
+<ul>
+<li>正确预测后以概率方式前进。</li>
+<li>confidence 增长更慢。</li>
+<li>只有长期稳定正确的 value pattern 才会被使用。</li>
+<li>coverage 较低。</li>
+<li>但 accuracy 极高。</li>
+</ul>
+<li>图中体现为：</li>
+<ul>
+<li>FPC 在多数 benchmark 上避免低于 1。</li>
+<li>Baseline 在若干 benchmark 上出现严重负收益。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>为什么部分 benchmark 中 Baseline 反而略高</strong></li>
+<ul>
+<li>例如 <strong>401.bzip2、403.gcc、464.h264ref</strong>：</li>
+<ul>
+<li>Baseline 的 speedup 略高于 FPC。</li>
+<li>原因可能是这些程序中 VTAGE 的预测本身已经较准确。</li>
+<li>FPC 进一步提高 accuracy 的边际收益不大。</li>
+<li>但 FPC 会减少 coverage，因此少了一部分本可带来收益的预测。</li>
+</ul>
+<li>这说明 FPC 是一种 <strong>稳健性优先</strong> 的设计，而不是在所有场景下最大化 speedup。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文论点的对应关系</strong></li>
+<ul>
+<li>该图直接支撑论文的第一个核心论点：</li>
+<ul>
+<li><strong>高 accuracy 比高 coverage 更重要</strong>。</li>
+</ul>
+<li>尤其在 commit-time validation 场景中：</li>
+<ul>
+<li>recovery 简单。</li>
+<li>硬件复杂度低。</li>
+<li>但 misprediction penalty 高。</li>
+</ul>
+<li>因此必须把 misprediction 数量压到极低。</li>
+<li>FPC 的作用正是让 VTAGE 在这种高惩罚恢复机制下仍然实用。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>对 VTAGE 的含义</strong></li>
+<ul>
+<li>图中只分析 <strong>VTAGE</strong>，没有展示 Stride、LVP 或 FCM。</li>
+<li>VTAGE 依赖：</li>
+<ul>
+<li><strong>global branch history</strong></li>
+<li><strong>path history</strong></li>
+<li>TAGE-like tagged components</li>
+</ul>
+<li>它适合预测与控制流相关的值。</li>
+<li>图中 <strong>applu、h264ref、gcc</strong> 等 benchmark 的高收益说明：</li>
+<ul>
+<li>某些程序中，value 与控制流历史存在强相关性。</li>
+<li>VTAGE 能够利用这种相关性突破传统 local value history predictor 的限制。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>图中最重要的信息</strong></li>
+<ul>
+<li><strong>FPC 几乎消除了 VTAGE 在 Baseline counter 下的严重负收益。</strong></li>
+<li><strong>FPC 让 commit-time squashing 成为可接受的 recovery 方案。</strong></li>
+<li><strong>VTAGE + FPC 在部分 benchmark 上可获得显著 speedup，最高约 1.6×。</strong></li>
+<li><strong>性能收益高度依赖 benchmark，本图中并非所有程序都能从 value prediction 中受益。</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>简要总结</strong></li>
+<ul>
+<li>该图表明，单纯使用普通 confidence counter 的 VTAGE 并不稳定，可能在 <strong>crafty、sjeng、vortex、gobmk</strong> 等 benchmark 上造成 slowdown。</li>
+<li>引入 <strong>Forward Probabilistic Counters</strong> 后，VTAGE 的性能明显更稳健。</li>
+<li>FPC 的主要贡献是通过极高 confidence 门槛减少 value misprediction，使得高惩罚的 <strong>squashing at commit</strong> recovery 也能获得实际性能收益。</li>
+<li>因而，该图是论文证明 <strong>practical value prediction</strong> 可行性的关键证据之一。</li>
+</ul>
+</ul>
+<h3 id="2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345jpg">2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg<a class="anchor" href="#2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345jpg">#</a></h3>
+<figure><img src="../images/2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg" alt="2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像类型与上下文</strong></li>
+<ul>
+<li>该图是论文 Figure 7 的子图 <strong>“(b) Coverage”</strong>。</li>
+<li>横轴为 <strong>SPEC CPU2000 / CPU2006 benchmarks</strong>。</li>
+<li>纵轴为 <strong>Prediction Coverage</strong>，范围 <strong>0–1</strong>，表示在启用高置信度机制后，Value Predictor 实际能够给出并使用预测的比例。</li>
+<li>每个 benchmark 有两根柱：</li>
+<ul>
+<li><strong>黑色柱</strong>：通常对应 <strong>VTAGE + 2D-Stride hybrid with FPC</strong>。</li>
+<li><strong>白色柱</strong>：通常对应对比 hybrid，例如 <strong>o4-FCM + 2D-Stride with FPC</strong>。</li>
+</ul>
+<li>图中核心关注点是：<strong>不同 hybrid value predictors 在 FPC 高置信度过滤后还能保留多少预测覆盖率</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>近似数据读取</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">黑色柱 Coverage</th>
+<th style="text-align:right">白色柱 Coverage</th>
+<th>主要观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>164.gzip</td>
+<td style="text-align:right">≈0.53</td>
+<td style="text-align:right">≈0.51</td>
+<td>两者接近，覆盖率中等</td>
+</tr>
+<tr>
+<td>168.wupwise</td>
+<td style="text-align:right">≈0.34</td>
+<td style="text-align:right">≈0.34</td>
+<td>两者几乎相同，覆盖率偏低</td>
+</tr>
+<tr>
+<td>173.applu</td>
+<td style="text-align:right">≈0.67</td>
+<td style="text-align:right">≈0.56</td>
+<td>黑色柱明显更高</td>
+</tr>
+<tr>
+<td>175.vpr</td>
+<td style="text-align:right">≈0.56</td>
+<td style="text-align:right">≈0.51</td>
+<td>黑色柱略高</td>
+</tr>
+<tr>
+<td>179.art</td>
+<td style="text-align:right">≈0.72</td>
+<td style="text-align:right">≈0.70</td>
+<td>两者都高，差距很小</td>
+</tr>
+<tr>
+<td>186.crafty</td>
+<td style="text-align:right">≈0.50</td>
+<td style="text-align:right">≈0.15</td>
+<td>黑色柱显著优势</td>
+</tr>
+<tr>
+<td>197.parser</td>
+<td style="text-align:right">≈0.62</td>
+<td style="text-align:right">≈0.49</td>
+<td>黑色柱优势明显</td>
+</tr>
+<tr>
+<td>255.vortex</td>
+<td style="text-align:right">≈0.76</td>
+<td style="text-align:right">≈0.51</td>
+<td>黑色柱显著更高</td>
+</tr>
+<tr>
+<td>401.bzip</td>
+<td style="text-align:right">≈0.38</td>
+<td style="text-align:right">≈0.36</td>
+<td>两者接近，覆盖率较低</td>
+</tr>
+<tr>
+<td>403.gcc</td>
+<td style="text-align:right">≈0.77</td>
+<td style="text-align:right">≈0.65</td>
+<td>黑色柱较高</td>
+</tr>
+<tr>
+<td>416.gamess</td>
+<td style="text-align:right">≈0.42</td>
+<td style="text-align:right">≈0.19</td>
+<td>黑色柱明显更高</td>
+</tr>
+<tr>
+<td>429.mcf</td>
+<td style="text-align:right">≈0.58</td>
+<td style="text-align:right">≈0.53</td>
+<td>黑色柱略高</td>
+</tr>
+<tr>
+<td>433.milc</td>
+<td style="text-align:right">≈0.15</td>
+<td style="text-align:right">≈0.15</td>
+<td>两者都很低</td>
+</tr>
+<tr>
+<td>444.namd</td>
+<td style="text-align:right">≈0.94</td>
+<td style="text-align:right">≈0.92</td>
+<td>全图最高覆盖率</td>
+</tr>
+<tr>
+<td>445.gobmk</td>
+<td style="text-align:right">≈0.33</td>
+<td style="text-align:right">≈0.14</td>
+<td>黑色柱显著优势</td>
+</tr>
+<tr>
+<td>456.hmmer</td>
+<td style="text-align:right">≈0.33</td>
+<td style="text-align:right">≈0.27</td>
+<td>黑色柱略高</td>
+</tr>
+<tr>
+<td>458.sjeng</td>
+<td style="text-align:right">≈0.49</td>
+<td style="text-align:right">≈0.30</td>
+<td>黑色柱明显更高</td>
+</tr>
+<tr>
+<td>464.h264</td>
+<td style="text-align:right">≈0.33</td>
+<td style="text-align:right">≈0.22</td>
+<td>黑色柱较高</td>
+</tr>
+<tr>
+<td>470.lbm</td>
+<td style="text-align:right">≈0.22</td>
+<td style="text-align:right">≈0.22</td>
+<td>两者接近，覆盖率低</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>总体趋势</strong></li>
+<ul>
+<li><strong>黑色柱在绝大多数 benchmark 上高于白色柱</strong>。</li>
+<li>这说明 <strong>VTAGE + 2D-Stride hybrid</strong> 在 FPC 过滤后通常能保留更高的 prediction coverage。</li>
+<li>白色柱在部分程序中覆盖率明显下降，尤其是：</li>
+<ul>
+<li><strong>186.crafty</strong></li>
+<li><strong>416.gamess</strong></li>
+<li><strong>445.gobmk</strong></li>
+<li><strong>458.sjeng</strong></li>
+</ul>
+<li>这些程序可能对 <strong>o4-FCM</strong> 这类 local value history predictor 不够友好，或者其 value pattern 学习速度较慢、置信度难以饱和。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>最高覆盖率程序</strong></li>
+<ul>
+<li><strong>444.namd</strong> 覆盖率最高：</li>
+<ul>
+<li>黑色柱约 <strong>0.94</strong></li>
+<li>白色柱约 <strong>0.92</strong></li>
+</ul>
+<li>说明该 benchmark 中大量值具有高度稳定性或可预测性。</li>
+<li>但根据论文正文，<strong>高 coverage 不一定带来高 speedup</strong>，因为程序本身可能没有足够的 data-dependence critical path 可被 Value Prediction 缩短。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>较高覆盖率程序</strong></li>
+<ul>
+<li>覆盖率较高的 benchmark 包括：</li>
+<ul>
+<li><strong>179.art</strong>：约 0.70+</li>
+<li><strong>403.gcc</strong>：黑色柱约 0.77</li>
+<li><strong>255.vortex</strong>：黑色柱约 0.76</li>
+<li><strong>173.applu</strong>：黑色柱约 0.67</li>
+<li><strong>197.parser</strong>：黑色柱约 0.62</li>
+</ul>
+<li>这些程序中，hybrid predictor 能够捕获较多可预测值。</li>
+<li>尤其 <strong>VTAGE + 2D-Stride</strong> 表现更强，说明其结合了：</li>
+<ul>
+<li><strong>VTAGE</strong> 对 control-flow correlated values 的预测能力。</li>
+<li><strong>2D-Stride</strong> 对 regular stride patterns 的预测能力。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>低覆盖率程序</strong></li>
+<ul>
+<li>覆盖率较低的 benchmark 包括：</li>
+<ul>
+<li><strong>433.milc</strong>：约 0.15</li>
+<li><strong>470.lbm</strong>：约 0.22</li>
+<li><strong>168.wupwise</strong>：约 0.34</li>
+<li><strong>401.bzip</strong>：约 0.36–0.38</li>
+</ul>
+<li>这些程序中，可被高置信度预测的值较少。</li>
+<li>可能原因包括：</li>
+<ul>
+<li>数据流更依赖 memory behavior。</li>
+<li>值变化更不规则。</li>
+<li>FPC 为保证极高 accuracy，过滤掉了大量低置信度预测。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>黑色柱优势显著的 benchmark</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">黑色柱优势</th>
+<th>可能原因</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>186.crafty</td>
+<td style="text-align:right">≈+0.35</td>
+<td>VTAGE 更能利用 global branch history</td>
+</tr>
+<tr>
+<td>255.vortex</td>
+<td style="text-align:right">≈+0.25</td>
+<td>Control-flow context 对值预测帮助大</td>
+</tr>
+<tr>
+<td>416.gamess</td>
+<td style="text-align:right">≈+0.23</td>
+<td>o4-FCM 覆盖率受限明显</td>
+</tr>
+<tr>
+<td>445.gobmk</td>
+<td style="text-align:right">≈+0.19</td>
+<td>VTAGE 对复杂分支相关模式更有效</td>
+</tr>
+<tr>
+<td>458.sjeng</td>
+<td style="text-align:right">≈+0.19</td>
+<td>VTAGE + Stride 互补性更好</td>
+</tr>
+<tr>
+<td>403.gcc</td>
+<td style="text-align:right">≈+0.12</td>
+<td>Hybrid 中 VTAGE 提供额外 coverage</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>技术含义</strong></li>
+<ul>
+<li><strong>Coverage 被 FPC 有意压低</strong>：</li>
+<ul>
+<li>FPC 的目标不是最大化 coverage。</li>
+<li>FPC 的目标是将 prediction accuracy 提升到极高水平，例如论文中提到的 <strong>&gt;99.5% / &gt;0.997</strong>。</li>
+<li>因此，图中的 coverage 是经过高置信度筛选后的“安全覆盖率”。</li>
+</ul>
+<li><strong>VTAGE 的优势在 coverage 上较稳定</strong>：</li>
+<ul>
+<li>VTAGE 不依赖 local value history。</li>
+<li>VTAGE 使用 <strong>global branch history</strong> 和 <strong>path history</strong>。</li>
+<li>因此它能更好地处理与 control-flow 相关的 value patterns。</li>
+</ul>
+<li><strong>o4-FCM 的问题更明显</strong>：</li>
+<ul>
+<li>需要 local value history。</li>
+<li>对 back-to-back occurrences 不友好。</li>
+<li>学习模式较慢。</li>
+<li>在 FPC 高置信度要求下，很多预测无法达到 saturated confidence。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文结论的关系</strong></li>
+<ul>
+<li>该图支撑论文中的核心观点：</li>
+<ul>
+<li><strong>VTAGE + 2D-Stride 是比 o4-FCM + 2D-Stride 更实际、更有效的 hybrid value predictor</strong>。</li>
+<li><strong>VTAGE 能提供更高 coverage，同时实现复杂度更低</strong>。</li>
+<li>在使用 <strong>FPC</strong> 后，即便采用 <strong>squashing at commit</strong> 这种较高代价的恢复机制，也可以通过极高 accuracy 避免严重性能损失。</li>
+</ul>
+<li>该图还说明：</li>
+<ul>
+<li><strong>Computational predictor</strong> 与 <strong>context-based predictor</strong> 具有互补性。</li>
+<li>Hybrid 方案可以覆盖更多 instruction value patterns。</li>
+<li>但 coverage 的提升并不必然线性转化为 speedup。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>关键结论</strong></li>
+<ul>
+<li><strong>黑色柱整体优于白色柱</strong>，表明 <strong>VTAGE + 2D-Stride</strong> 的覆盖率更强。</li>
+<li><strong>444.namd coverage 最高</strong>，但高 coverage 不必然意味着高 speedup。</li>
+<li><strong>186.crafty、255.vortex、416.gamess、445.gobmk、458.sjeng</strong> 中 VTAGE-based hybrid 优势尤其明显。</li>
+<li><strong>FPC 牺牲部分 coverage 换取极高 accuracy</strong>，这是论文实现 practical value prediction 的关键。</li>
+<li>该图证明：<strong>在高端处理器中，使用 VTAGE + 2D-Stride + FPC 的 Value Prediction 方案比传统 local-history FCM hybrid 更具实用性。</strong></li>
+</ul>
+</ul>
+<h3 id="b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0jpg">b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg<a class="anchor" href="#b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0jpg">#</a></h3>
+<figure><img src="../images/b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg" alt="b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像类型与来源</strong></li>
+<ul>
+<li>该图是论文中的 <strong>Figure 7(a): Speedup</strong>。</li>
+<li>展示的是不同 <strong>Value Prediction</strong> 方案在 <strong>squashing at commit</strong> 恢复机制下，相对于 baseline processor 的性能加速比。</li>
+<li>该图重点比较：</li>
+<ul>
+<li><strong>2D-Stride</strong></li>
+<li><strong>o4-FCM</strong></li>
+<li><strong>VTAGE</strong></li>
+<li><strong>o4-FCM-2DStr hybrid</strong></li>
+<li><strong>VTAGE-2DStr hybrid</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>坐标轴含义</strong></li>
+<ul>
+<li>横轴：SPEC CPU2000 / CPU2006 benchmark。</li>
+<li>纵轴：<strong>Speedup over baseline</strong>。</li>
+<li>纵轴范围约为 <strong>0.9 到 1.7</strong>。</li>
+<li><strong>1.0</strong> 表示与 baseline 性能相同。</li>
+<li>高于 <strong>1.0</strong> 表示有加速。</li>
+<li>低于 <strong>1.0</strong> 表示出现减速。</li>
+<li>图中虚线网格以约 <strong>0.1</strong> 为间隔，便于观察性能差异。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图例说明</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>图例</th>
+<th>含义</th>
+<th>类型</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>2D-Str</strong></td>
+<td>2-delta Stride predictor</td>
+<td>computational predictor</td>
+</tr>
+<tr>
+<td><strong>o4-FCM</strong></td>
+<td>order-4 Finite Context Method predictor</td>
+<td>context-based predictor</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>Value TAGE predictor</td>
+<td>global branch-history-based predictor</td>
+</tr>
+<tr>
+<td><strong>o4-FCM-2DStr</strong></td>
+<td>o4-FCM 与 2D-Stride 的 hybrid</td>
+<td>hybrid predictor</td>
+</tr>
+<tr>
+<td><strong>VTAGE-2DStr</strong></td>
+<td>VTAGE 与 2D-Stride 的 hybrid</td>
+<td>hybrid predictor</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>总体趋势</strong></li>
+<ul>
+<li><strong>VTAGE-2DStr hybrid 整体表现最好或接近最好</strong>。</li>
+<li><strong>2D-Stride</strong> 在部分程序中非常有效，尤其是具有明显 stride/value stream 行为的程序。</li>
+<li><strong>VTAGE</strong> 在部分程序中优于传统 <strong>o4-FCM</strong>，说明使用 <strong>global branch history/path history</strong> 的上下文信息具有价值。</li>
+<li><strong>hybrid predictor</strong> 通常优于单一 predictor，尤其在 <strong>173.applu、401.bzip2、464.h264ref</strong> 等程序中收益明显。</li>
+<li>多数 benchmark 的加速较小，接近 <strong>1.0–1.1</strong>，说明并非所有程序都有足够的 value prediction 潜力。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>主要高收益 benchmark</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">最高加速方案</th>
+<th style="text-align:right">约略最高 speedup</th>
+<th>观察</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right"><strong>VTAGE-2DStr</strong></td>
+<td style="text-align:right"><strong>≈1.65×</strong></td>
+<td>全图最高之一，hybrid 明显优于单一 predictor</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right"><strong>VTAGE-2DStr</strong></td>
+<td style="text-align:right"><strong>≈1.54×</strong></td>
+<td>hybrid 收益显著，2D-Str 与 VTAGE 互补</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right"><strong>VTAGE / VTAGE-2DStr</strong></td>
+<td style="text-align:right"><strong>≈1.33–1.34×</strong></td>
+<td>VTAGE 表现突出，说明 control-flow context 对该程序有效</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right"><strong>2D-Str / hybrid</strong></td>
+<td style="text-align:right"><strong>≈1.20–1.23×</strong></td>
+<td>stride 类预测效果较好</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right"><strong>hybrid / 2D-Str</strong></td>
+<td style="text-align:right"><strong>≈1.16–1.17×</strong></td>
+<td>多种 predictor 都有稳定收益</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>低收益或近似无收益 benchmark</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">Speedup 范围</th>
+<th>说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td>几乎无收益</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">≈1.00–1.02</td>
+<td>VP 可利用空间很小</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td>几乎无明显变化</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">≈1.00–1.01</td>
+<td>收益极低</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">≈0.99–1.00</td>
+<td>可能略有减速</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">≈1.00–1.02</td>
+<td>收益很小</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td>几乎无收益</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td>无明显加速</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>各 benchmark 近似读数</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">2D-Str</th>
+<th style="text-align:right">o4-FCM</th>
+<th style="text-align:right">VTAGE</th>
+<th style="text-align:right">o4-FCM-2DStr</th>
+<th style="text-align:right">VTAGE-2DStr</th>
+<th>主要结论</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td>无明显收益</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">≈1.20</td>
+<td style="text-align:right">≈1.17</td>
+<td style="text-align:right">≈1.18</td>
+<td style="text-align:right">≈1.22</td>
+<td style="text-align:right">≈1.21</td>
+<td><strong>2D-Str 与 hybrid 较好</strong></td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">≈1.45</td>
+<td style="text-align:right">≈1.22</td>
+<td style="text-align:right">≈1.62</td>
+<td style="text-align:right">≈1.23</td>
+<td style="text-align:right">≈1.65</td>
+<td><strong>VTAGE-2DStr 最强</strong></td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">≈1.07</td>
+<td style="text-align:right">≈1.07</td>
+<td style="text-align:right">≈1.08</td>
+<td style="text-align:right">≈1.08</td>
+<td style="text-align:right">≈1.10</td>
+<td>小幅收益</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">≈1.15</td>
+<td style="text-align:right">≈1.12</td>
+<td style="text-align:right">≈1.16</td>
+<td style="text-align:right">≈1.16</td>
+<td style="text-align:right">≈1.17</td>
+<td>稳定中等收益</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.02</td>
+<td>很小收益</td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">≈1.04</td>
+<td style="text-align:right">≈1.04</td>
+<td style="text-align:right">≈1.05</td>
+<td style="text-align:right">≈1.05</td>
+<td style="text-align:right">≈1.06</td>
+<td>小幅收益</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td>无收益</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">≈1.48</td>
+<td style="text-align:right">≈1.48</td>
+<td style="text-align:right">≈1.12</td>
+<td style="text-align:right">≈1.49</td>
+<td style="text-align:right">≈1.54</td>
+<td><strong>hybrid 明显最好</strong></td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.16</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.17</td>
+<td style="text-align:right">≈1.17</td>
+<td><strong>o4-FCM/hybrid 有收益</strong></td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.08</td>
+<td style="text-align:right">≈1.09</td>
+<td style="text-align:right">≈1.08</td>
+<td style="text-align:right">≈1.09</td>
+<td>VTAGE 略优</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.01</td>
+<td>极小收益</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈0.99</td>
+<td style="text-align:right">≈1.00</td>
+<td>接近无收益，略有风险</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.03</td>
+<td style="text-align:right">≈1.03</td>
+<td style="text-align:right">≈1.04</td>
+<td>小幅收益</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.02</td>
+<td>很小收益</td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.02</td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.02</td>
+<td>很小收益</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td>无明显收益</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">≈1.01</td>
+<td style="text-align:right">≈1.12</td>
+<td style="text-align:right">≈1.33</td>
+<td style="text-align:right">≈1.32</td>
+<td style="text-align:right">≈1.34</td>
+<td><strong>VTAGE 主导收益</strong></td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td style="text-align:right">≈1.00</td>
+<td>无收益</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>对单一 predictor 的比较</strong></li>
+<ul>
+<li><strong>2D-Str</strong></li>
+<ul>
+<li>在 <strong>168.wupwise、173.applu、179.art、401.bzip2</strong> 上表现较好。</li>
+<li>尤其 <strong>401.bzip2</strong> 中约 <strong>1.48×</strong>，说明该程序存在强烈的 stride-like value pattern。</li>
+<li>但在 <strong>403.gcc、464.h264ref</strong> 上不突出，说明纯 stride 机制覆盖不足。</li>
+</ul>
+<li><strong>o4-FCM</strong></li>
+<ul>
+<li>在 <strong>403.gcc、464.h264ref</strong> 上有较好表现。</li>
+<li>但在 <strong>173.applu</strong> 上远弱于 VTAGE，显示 local value history 的上下文表达能力有限。</li>
+<li>论文中也指出，o4-FCM 还存在现实硬件实现上的 back-to-back prediction critical path 问题。</li>
+</ul>
+<li><strong>VTAGE</strong></li>
+<ul>
+<li>在 <strong>173.applu、416.gamess、464.h264ref</strong> 上表现突出。</li>
+<li>特别是 <strong>173.applu</strong> 和 <strong>464.h264ref</strong>，说明这些程序的值结果与 <strong>global branch history / path history</strong> 有较强相关性。</li>
+<li>相比 o4-FCM，VTAGE 更适合实际实现，因为它不依赖 local value history 的连续更新。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>对 hybrid predictor 的比较</strong></li>
+<ul>
+<li><strong>VTAGE-2DStr</strong> 通常优于 <strong>o4-FCM-2DStr</strong>。</li>
+<li>原因在于：</li>
+<ul>
+<li><strong>2D-Stride</strong> 捕捉 arithmetic/stride pattern。</li>
+<li><strong>VTAGE</strong> 捕捉 control-flow-correlated value pattern。</li>
+<li>两者覆盖的 instruction 集合具有互补性。</li>
+</ul>
+<li><strong>o4-FCM-2DStr</strong> 也能提升性能，但总体略弱于 <strong>VTAGE-2DStr</strong>。</li>
+<li>在 <strong>173.applu</strong> 上差距非常明显：</li>
+<ul>
+<li><strong>o4-FCM-2DStr ≈1.23×</strong></li>
+<li><strong>VTAGE-2DStr ≈1.65×</strong></li>
+<li>说明 VTAGE 对该程序的上下文建模远优于 o4-FCM。</li>
+</ul>
+<li>在 <strong>401.bzip2</strong> 上：</li>
+<ul>
+<li><strong>2D-Str ≈1.48×</strong></li>
+<li><strong>VTAGE ≈1.12×</strong></li>
+<li><strong>VTAGE-2DStr ≈1.54×</strong></li>
+<li>表明该程序主要依赖 stride pattern，但 VTAGE 仍能提供额外补充。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>最重要的结论</strong></li>
+<ul>
+<li><strong>Hybrid value prediction 是必要的</strong>：单一 predictor 很难在所有 benchmark 上占优。</li>
+<li><strong>VTAGE-2DStr 是图中最有竞争力的方案</strong>，兼顾 stride pattern 与 branch-history context。</li>
+<li><strong>VTAGE 比 o4-FCM 更适合作为 context-based predictor</strong>：</li>
+<ul>
+<li>性能更好或相近。</li>
+<li>更容易支持 tight loop 中的 back-to-back prediction。</li>
+<li>不需要复杂追踪每条指令最近 n 个 speculative values。</li>
+</ul>
+<li><strong>性能收益具有明显 workload dependence</strong>：</li>
+<ul>
+<li>部分程序可获得 <strong>30%–65%</strong> 的显著提升。</li>
+<li>大量程序收益小于 <strong>5%</strong>。</li>
+</ul>
+<li>该图支撑论文核心观点：在使用 <strong>FPC confidence mechanism</strong> 保证高准确率后，结合 <strong>VTAGE + 2D-Stride</strong> 的 practical value predictor 可以在较少 OoO engine 修改的情况下获得可观性能提升。</li>
+</ul>
+</ul>
+<h3 id="5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1jpg">5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1.jpg<a class="anchor" href="#5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1jpg">#</a></h3>
+<figure><img src="../images/5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1.jpg" alt="5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图片类型与位置</strong></li>
+<ul>
+<li>该图是论文 Figure 7 的子图 <strong>“(b) Coverage”</strong>。</li>
+<li>横轴为 <strong>SPEC CPU2000 / CPU2006 benchmark</strong>，共 <strong>19 个程序</strong>。</li>
+<li>纵轴为 <strong>Coverage</strong>，范围 <strong>0 到 1</strong>，表示 value predictor 对动态指令结果给出高置信预测的比例。</li>
+<li>图中每个 benchmark 通常包含多根柱，表示不同预测器配置的覆盖率对比，主要围绕 <strong>2D-Stride、VTAGE、o4-FCM 及其 hybrid predictor</strong> 展开。</li>
+<li>该图对应论文第 8.3 节 <strong>Hybrid predictors</strong>，重点说明 <strong>VTAGE + 2D-Stride</strong> 相比单一预测器具有更高覆盖率，且通常优于 <strong>o4-FCM + 2D-Stride</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>核心结论</strong></li>
+<ul>
+<li><strong>Coverage 差异非常显著</strong>：不同 benchmark 的可预测性差别很大，从约 <strong>0.1</strong> 到超过 <strong>0.9</strong>。</li>
+<li><strong>444.namd 覆盖率最高</strong>，接近 <strong>0.9–0.95</strong>，说明大量结果值可被高置信预测。</li>
+<li><strong>186.crafty、416.gamess、433.milc、445.gobmk、458.sjeng、464.h264</strong> 等覆盖率较低，多数在 <strong>0.1–0.3</strong> 区间。</li>
+<li><strong>179.art、168.wupwise、403.gcc、429.mcf</strong> 等覆盖率较高，说明这些程序存在明显的 value locality 或 stride-like pattern。</li>
+<li><strong>Hybrid predictor 的覆盖率通常高于单一预测器</strong>，证明 <strong>computational predictor</strong> 与 <strong>context-based predictor</strong> 可预测的指令集合具有互补性。</li>
+<li>但论文同时指出：<strong>高 Coverage 不必然带来高 Speedup</strong>，例如 <strong>444.namd</strong> 覆盖率极高，但由于该 benchmark 的 Value Prediction 加速潜力有限，性能提升并不突出。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中数据的近似读数</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>Benchmark</th>
+<th style="text-align:right">Coverage 观察值范围</th>
+<th>可预测性评价</th>
+<th>主要现象</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>164.gzip</strong></td>
+<td style="text-align:right">约 <strong>0.50–0.55</strong></td>
+<td>中等</td>
+<td>多个配置覆盖率接近，hybrid 提升有限</td>
+</tr>
+<tr>
+<td><strong>168.wupwise</strong></td>
+<td style="text-align:right">约 <strong>0.35–0.75</strong></td>
+<td>较高</td>
+<td>不同预测器差异大，部分配置覆盖率显著更高</td>
+</tr>
+<tr>
+<td><strong>173.applu</strong></td>
+<td style="text-align:right">约 <strong>0.40–0.58</strong></td>
+<td>中等偏高</td>
+<td>context-based 与 hybrid 有一定收益</td>
+</tr>
+<tr>
+<td><strong>175.vpr</strong></td>
+<td style="text-align:right">约 <strong>0.42–0.52</strong></td>
+<td>中等</td>
+<td>覆盖率稳定，配置间差异不大</td>
+</tr>
+<tr>
+<td><strong>179.art</strong></td>
+<td style="text-align:right">约 <strong>0.70–0.80</strong></td>
+<td>高</td>
+<td>value pattern 明显，是 VP 友好型程序</td>
+</tr>
+<tr>
+<td><strong>186.crafty</strong></td>
+<td style="text-align:right">约 <strong>0.10–0.17</strong></td>
+<td>低</td>
+<td>难以预测，FPC 后覆盖率受限</td>
+</tr>
+<tr>
+<td><strong>197.parser</strong></td>
+<td style="text-align:right">约 <strong>0.50–0.55</strong></td>
+<td>中等偏高</td>
+<td>hybrid 可保持较好覆盖</td>
+</tr>
+<tr>
+<td><strong>255.vortex</strong></td>
+<td style="text-align:right">约 <strong>0.40–0.57</strong></td>
+<td>中等</td>
+<td>覆盖率有提升空间，但准确性压力较大</td>
+</tr>
+<tr>
+<td><strong>401.bzip2</strong></td>
+<td style="text-align:right">约 <strong>0.38–0.48</strong></td>
+<td>中等</td>
+<td>stride 类模式可能较重要</td>
+</tr>
+<tr>
+<td><strong>403.gcc</strong></td>
+<td style="text-align:right">约 <strong>0.50–0.66</strong></td>
+<td>较高</td>
+<td>VTAGE / hybrid 表现较好</td>
+</tr>
+<tr>
+<td><strong>416.gamess</strong></td>
+<td style="text-align:right">约 <strong>0.10–0.20</strong></td>
+<td>低</td>
+<td>高置信预测较少</td>
+</tr>
+<tr>
+<td><strong>429.mcf</strong></td>
+<td style="text-align:right">约 <strong>0.55–0.62</strong></td>
+<td>较高</td>
+<td>hybrid 覆盖率较稳定</td>
+</tr>
+<tr>
+<td><strong>433.milc</strong></td>
+<td style="text-align:right">约 <strong>0.14–0.16</strong></td>
+<td>低</td>
+<td>可预测结果比例很小</td>
+</tr>
+<tr>
+<td><strong>444.namd</strong></td>
+<td style="text-align:right">约 <strong>0.65–0.92</strong></td>
+<td>极高</td>
+<td>覆盖率最高，但 speedup 不一定最高</td>
+</tr>
+<tr>
+<td><strong>445.gobmk</strong></td>
+<td style="text-align:right">约 <strong>0.13–0.17</strong></td>
+<td>低</td>
+<td>控制流复杂，值模式难稳定</td>
+</tr>
+<tr>
+<td><strong>456.hmmer</strong></td>
+<td style="text-align:right">约 <strong>0.20–0.30</strong></td>
+<td>低到中等</td>
+<td>覆盖率有限</td>
+</tr>
+<tr>
+<td><strong>458.sjeng</strong></td>
+<td style="text-align:right">约 <strong>0.15–0.23</strong></td>
+<td>低</td>
+<td>预测机会较少</td>
+</tr>
+<tr>
+<td><strong>464.h264ref</strong></td>
+<td style="text-align:right">约 <strong>0.15–0.25</strong></td>
+<td>低到中等</td>
+<td>覆盖率低，但论文中其 speedup 可较明显</td>
+</tr>
+<tr>
+<td><strong>470.lbm</strong></td>
+<td style="text-align:right">约 <strong>0.22–0.27</strong></td>
+<td>低到中等</td>
+<td>覆盖率不高但较稳定</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>按覆盖率分组观察</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>覆盖率区间</th>
+<th>Benchmark</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>高覆盖率：&gt; 0.65</strong></td>
+<td><strong>179.art、444.namd、部分 168.wupwise</strong></td>
+<td>值序列规律强，适合 Value Prediction</td>
+</tr>
+<tr>
+<td><strong>中高覆盖率：0.50–0.65</strong></td>
+<td><strong>164.gzip、173.applu、175.vpr、197.parser、255.vortex、403.gcc、429.mcf</strong></td>
+<td>存在一定 value locality，hybrid 有实际意义</td>
+</tr>
+<tr>
+<td><strong>中低覆盖率：0.25–0.50</strong></td>
+<td><strong>401.bzip2、456.hmmer、470.lbm</strong></td>
+<td>可预测指令有限，收益依赖关键路径位置</td>
+</tr>
+<tr>
+<td><strong>低覆盖率：&lt; 0.25</strong></td>
+<td><strong>186.crafty、416.gamess、433.milc、445.gobmk、458.sjeng、464.h264ref</strong></td>
+<td>高置信预测少，FPC 为保证准确性牺牲了覆盖率</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>不同 benchmark 的关键解读</strong></li>
+<ul>
+<li><strong>444.namd</strong></li>
+<ul>
+<li>覆盖率接近 <strong>0.9</strong>，是图中最高。</li>
+<li>说明大量动态指令结果可以被稳定预测。</li>
+<li>但论文指出其 <strong>speedup marginal</strong>，原因是即使预测成功，也未明显缩短关键路径，或者程序瓶颈不在数据依赖。</li>
+</ul>
+<li><strong>179.art</strong></li>
+<ul>
+<li>覆盖率约 <strong>0.7–0.8</strong>。</li>
+<li>对 Value Prediction 非常友好。</li>
+<li>可能存在规则数组访问、循环计算或稳定数值模式。</li>
+</ul>
+<li><strong>403.gcc</strong></li>
+<ul>
+<li>覆盖率约 <strong>0.5–0.65</strong>。</li>
+<li>VTAGE 类基于 <strong>global branch history</strong> 的预测器可能更有效，因为编译器类程序控制流复杂，值结果与路径相关。</li>
+</ul>
+<li><strong>168.wupwise</strong></li>
+<ul>
+<li>不同柱之间差异明显，说明不同 predictor 对该程序捕获到的 pattern 不同。</li>
+<li><strong>2D-Stride</strong> 或 hybrid 可能捕获较多规则数值变化。</li>
+</ul>
+<li><strong>186.crafty / 445.gobmk / 458.sjeng</strong></li>
+<ul>
+<li>覆盖率低。</li>
+<li>这类程序通常具有复杂控制流、搜索行为或不稳定数据结构访问，导致高置信 value pattern 较少。</li>
+</ul>
+<li><strong>464.h264ref</strong></li>
+<ul>
+<li>覆盖率不高，但论文中提到较小 coverage 仍可能带来明显 speedup。</li>
+<li>这说明被预测的值可能位于 <strong>critical path</strong> 上，预测少量关键指令也能带来收益。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>与 Figure 7(a) Speedup 的关系</strong></li>
+<ul>
+<li>该 Coverage 图不能单独决定性能收益。</li>
+<li><strong>Coverage 高 ≠ Speedup 高</strong>：</li>
+<ul>
+<li><strong>444.namd</strong> 是典型例子，覆盖率很高，但加速潜力有限。</li>
+</ul>
+<li><strong>Coverage 低也可能 Speedup 高</strong>：</li>
+<ul>
+<li><strong>h264ref</strong> 覆盖率较低，但如果预测命中关键依赖链，仍可能显著加速。</li>
+</ul>
+<li>因此，Value Prediction 的实际收益由三者共同决定：</li>
+<ul>
+<li><strong>Coverage</strong></li>
+<li><strong>Accuracy</strong></li>
+<li><strong>预测指令是否位于 critical path</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>与 FPC 的关系</strong></li>
+<ul>
+<li>图中配置使用 <strong>FPC / Forward Probabilistic Counters</strong>。</li>
+<li>FPC 的作用是牺牲一部分 Coverage，换取极高 Accuracy。</li>
+<li>在论文中，FPC 使预测准确率通常达到 <strong>&gt; 99.7%</strong>。</li>
+<li>这使得处理器可以使用更简单的 <strong>squashing at commit</strong> 机制，而不必依赖复杂的 <strong>selective reissue</strong>。</li>
+<li>因此，该 Coverage 图反映的是一种 <strong>高置信预测覆盖率</strong>，不是普通预测器在无严格置信过滤下的原始覆盖率。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Hybrid predictor 的意义</strong></li>
+<ul>
+<li><strong>2D-Stride</strong> 属于 computational predictor，擅长预测规则递增、递减或周期性 stride pattern。</li>
+<li><strong>VTAGE</strong> 属于 context-based predictor，利用 <strong>global branch history</strong> 与 <strong>path history</strong>，擅长捕获与控制流相关的值模式。</li>
+<li>两者预测的指令集合并不完全重合，因此组合后 Coverage 通常提高。</li>
+<li>图中多个 benchmark 的柱形显示 hybrid 覆盖率高于或接近最佳单一预测器，说明二者具有互补性。</li>
+<li>论文认为 <strong>VTAGE + 2D-Stride</strong> 比 <strong>o4-FCM + 2D-Stride</strong> 更实用，因为：</li>
+<ul>
+<li><strong>VTAGE 更容易处理 back-to-back prediction</strong></li>
+<li>不依赖 per-instruction local value history</li>
+<li>预测访问可跨多个 cycle 完成</li>
+<li>更适合实际高频处理器实现</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>硬件实现层面的含义</strong></li>
+<ul>
+<li>覆盖率较高的 benchmark 表明 Value Prediction 有足够使用机会。</li>
+<li>但由于 FPC 会过滤掉低置信预测，预测器不会盲目追求 Coverage。</li>
+<li>这种设计符合论文主张：</li>
+<ul>
+<li><strong>优先保证极高 Accuracy</strong></li>
+<li><strong>接受适度 Coverage 损失</strong></li>
+<li><strong>避免复杂 selective reissue</strong></li>
+<li><strong>将验证推迟到 commit time</strong></li>
+</ul>
+<li>图中 Coverage 仍能在多个程序达到 <strong>0.5 以上</strong>，说明即使在严格 FPC 过滤后，Value Prediction 仍具有实际利用空间。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>总体评价</strong></li>
+<ul>
+<li>该图证明了 <strong>hybrid Value Prediction</strong> 在多数程序上可以维持可观 Coverage。</li>
+<li><strong>VTAGE + 2D-Stride</strong> 的组合兼顾控制流相关值模式与 stride 型数值模式，是论文推荐的实用方案。</li>
+<li>覆盖率最高的程序并不一定性能提升最大，说明未来设计还需结合 <strong>criticality estimation</strong>。</li>
+<li>该图支撑论文核心观点：在高准确率 FPC 的约束下，Value Prediction 仍能提供足够覆盖率，从而在不大幅改造 OoO engine 的情况下提升单线程性能。</li>
+</ul>
+</ul></article>
+    </main>
+    <aside class="toc">
+      <div class="toc-title">目录</div>
+      <a class="toc-level-1" href="#practical-data-value-speculation-for-future-high-end-processors-图表详解">Practical Data Value Speculation for Future High-end Processors 图表详解</a>
+<a class="toc-level-3" href="#figure-1-prediction-flow-and-critical-paths-for-different-value-predictors-when-two-occurrences-of-an-instruction-are-fetched-in-two-consecutive-cycles">Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.</a>
+<a class="toc-level-3" href="#figure-2-1n-component-vtage-predictor-val-is-the-prediction-c-is-the-hysteresis-counter-acting-as-confidence-counter-u-is-the-useful-bit-used-by-the-replacement-policy">Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.</a>
+<a class="toc-level-3" href="#55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978jpg">55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978.jpg</a>
+<a class="toc-level-3" href="#11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124jpg">11e8f6a3e61303507aa27fe1234657b01f6e6658e7cda565808af11a5fdaf124.jpg</a>
+<a class="toc-level-3" href="#c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1jpg">c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg</a>
+<a class="toc-level-3" href="#9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5jpg">9ba1436d1438e648e91e9c7755824c1c562f13c938d64f64279ffd6f03dd87d5.jpg</a>
+<a class="toc-level-3" href="#d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514jpg">d4e2ccb58f5a3a0b746cca93161e0c218bb3efac4725bc900dca399c0fc8b514.jpg</a>
+<a class="toc-level-3" href="#2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2bjpg">2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg</a>
+<a class="toc-level-3" href="#2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345jpg">2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg</a>
+<a class="toc-level-3" href="#b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0jpg">b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg</a>
+<a class="toc-level-3" href="#5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1jpg">5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1.jpg</a>
+    </aside>
+  </div>
+</body>
+</html>

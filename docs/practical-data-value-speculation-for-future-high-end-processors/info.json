@@ -1,0 +1,17 @@
+{
+  "index": "practical-data-value-speculation-for-future-high-end-processors",
+  "paper_title": "Practical Data Value Speculation for Future High-end Processors",
+  "metadata": {
+    "authors": [
+      "Arthur Perais",
+      "André Seznec"
+    ],
+    "affiliations": [
+      "IRISA/Inria, Rennes, France"
+    ],
+    "venue": "HPCA",
+    "year": 2014,
+    "doi": "10.1109/HPCA.2014.6835952"
+  },
+  "description": "论文重审高端处理器中的值预测，提出前向概率计数器（FPC），以极低覆盖损失将预测准确率提升至99.7%以上，使提交阶段验证与流水线清空替代复杂选择性重执行成为可行方案；提出基于全局分支/路径历史的VTAGE，支持紧密循环连续预测。VTAGE与2D-Stride混合在SPEC CPU2000/2006上最高加速65%。"
+}

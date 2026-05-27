@@ -1,0 +1,2295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Practical Data Value Speculation for Future High-end Processors 通俗讲解 - BlaBlaCutter</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --sidebar: #0f172a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  line-height: 1.72;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 28px;
+  color: #fff;
+  background: var(--sidebar);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .12);
+}
+.brand {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-title {
+  overflow: hidden;
+  color: #cbd5e1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 0;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.sidebar,
+.toc {
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 28px 18px;
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: #fff;
+}
+.toc {
+  border-left: 1px solid var(--line);
+  background: #fff;
+}
+.nav-link,
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-link {
+  margin-bottom: 4px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.nav-link:hover,
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.toc-title {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.toc a {
+  padding: 5px 0;
+  font-size: 13px;
+}
+.toc a:hover { color: var(--accent); }
+.toc-level-3 { padding-left: 16px !important; }
+.content {
+  min-width: 0;
+  padding: 36px 48px 80px;
+}
+article {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 44px 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+h1, h2, h3, h4, h5, h6 {
+  position: relative;
+  line-height: 1.28;
+  scroll-margin-top: 76px;
+}
+h1 {
+  margin-top: 0;
+  font-size: 30px;
+}
+h2 {
+  margin-top: 42px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 24px;
+}
+h3 { margin-top: 30px; font-size: 20px; }
+h4 { margin-top: 24px; font-size: 17px; }
+.anchor {
+  margin-left: 8px;
+  color: #94a3b8;
+  font-size: .72em;
+  text-decoration: none;
+  opacity: 0;
+}
+h1:hover .anchor,
+h2:hover .anchor,
+h3:hover .anchor,
+h4:hover .anchor { opacity: 1; }
+p { margin: 14px 0; }
+ul, ol { padding-left: 1.35em; }
+li { margin: 5px 0; }
+a { color: var(--accent); }
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  font-size: .92em;
+}
+pre {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+pre code { padding: 0; background: transparent; color: inherit; }
+figure {
+  margin: 24px 0;
+  text-align: center;
+}
+figure img,
+p img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  font-size: 14px;
+  overflow-x: auto;
+  display: block;
+}
+table th, table td {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+table tbody tr:hover {
+  background: var(--accent-soft);
+}
+figure em {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.index {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 56px 28px;
+}
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.report-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+.report-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+}
+.report-card span {
+  display: block;
+  font-weight: 700;
+}
+	.report-card small {
+	  color: var(--muted);
+	}
+	.paper-card p {
+	  margin: 10px 0 0;
+	  color: var(--muted);
+	  font-size: 14px;
+	  line-height: 1.55;
+	}
+	.muted { color: var(--muted); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 190px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 760px) {
+  .topbar { padding: 0 16px; }
+  .layout { display: block; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 12px;
+  }
+  .content { padding: 20px 12px 48px; }
+  article { padding: 24px 18px 40px; }
+  h1 { font-size: 25px; }
+  h2 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">BlaBlaCutter</a>
+    <span class="page-title">Practical Data Value Speculation for Future High-end Processors 通俗讲解</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav>
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link" href="../paper_notes/index.html">论文解析</a>
+<a class="nav-link active" href="../eli5_notes/index.html">通俗讲解</a>
+<a class="nav-link" href="../figs_notes/index.html">图表详解</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <article><h1 id="practical-data-value-speculation-for-future-high-end-processors-通俗讲解">Practical Data Value Speculation for Future High-end Processors 通俗讲解<a class="anchor" href="#practical-data-value-speculation-for-future-high-end-processors-通俗讲解">#</a></h1>
+<h3 id="0-整体创新点通俗解读">0. 整体创新点通俗解读<a class="anchor" href="#0-整体创新点通俗解读">#</a></h3>
+<p><strong>一句话抓住这篇论文</strong></p>
+<ul>
+<li>这篇论文不是在说“我又发明了一个更准的 Value Predictor”这么简单。</li>
+<li>它真正想解决的是：<strong>Value Prediction 过去看起来很美，但工程上太难落地</strong>。</li>
+<li>作者的核心判断是：</li>
+<ul>
+<li><strong>不要试图把误预测恢复做得极其复杂。</strong></li>
+<li><strong>而是把误预测本身压到极低，让简单恢复机制也能接受。</strong></li>
+<li>同时，设计一个更适合现代 pipeline 的预测器 <strong>VTAGE</strong>，避免传统 context-based predictor 在 tight loop 里卡死。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>痛点直击：Value Prediction 以前为什么“看起来有用，但没人真敢用”</strong></p>
+<ul>
+<li><strong>Value Prediction</strong> 的目标很诱人：</li>
+<ul>
+<li>提前猜出某条指令的结果。</li>
+<li>下游依赖它的指令不用等真实结果出来，可以先执行。</li>
+<li>本质上是绕过 true data dependency，缩短 critical path。</li>
+</ul>
+</ul>
+<ul>
+<li>但问题是，<strong>猜错一次很贵</strong>。</li>
+<ul>
+<li>Branch Prediction 猜错，flush pipeline，大家都能接受，因为收益巨大且机制成熟。</li>
+<li>Value Prediction 猜错，麻烦更细：</li>
+<ul>
+<li>可能只有几条 dependent instruction 用错了值。</li>
+<li>你要么把整条 pipeline squash 掉。</li>
+<li>要么搞复杂的 <strong>selective reissue</strong>，只重放受影响的 dependent chain。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>过去很多 Value Prediction 研究的隐含假设是：</li>
+<ul>
+<li>“我们能很快发现错了。”</li>
+<li>“我们能很便宜地修复错了。”</li>
+<li>“误预测代价不大。”</li>
+</ul>
+<li>但现实里这很难受：</li>
+<ul>
+<li><strong>selective reissue</strong> 需要在 OoO engine 里追踪依赖、取消、重放，非常复杂。</li>
+<li><strong>execution-time validation</strong> 要把 predicted value 在乱序执行核心里一路传递和验证，硬件侵入性很强。</li>
+<li><strong>commit-time validation</strong> 简单得多，但错一次代价更高，因为发现得晚。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>方案</th>
+<th>好处</th>
+<th>痛点</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>selective reissue</strong></td>
+<td>错了只重放相关指令，理论代价低</td>
+<td>硬件复杂，OoO engine 改动大</td>
+</tr>
+<tr>
+<td><strong>pipeline squashing at execution</strong></td>
+<td>比 commit-time 早发现</td>
+<td>仍需 execution-time validation，复杂</td>
+</tr>
+<tr>
+<td><strong>pipeline squashing at commit</strong></td>
+<td>前端预测、后端验证，OoO engine 改动小</td>
+<td>错误发现晚，单次误预测代价高</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>所以真正的痛点不是“预测器还不够聪明”。</li>
+<li>真正的痛点是：</li>
+<ul>
+<li><strong>只要准确率不是极高，Value Prediction 的收益会被误预测恢复成本吃掉。</strong></li>
+<li>尤其是如果你想用最简单的 <strong>commit-time validation</strong>，那误预测率必须低到离谱。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>通俗比方：这篇论文的思维模型</strong></p>
+<ul>
+<li>可以把 Value Prediction 想成“提前替学生交作业答案”。</li>
+<ul>
+<li>猜对了，老师批改时发现没问题，学生省了很多时间。</li>
+<li>猜错了，老师发现后要让学生重做，甚至整组都要返工。</li>
+</ul>
+</ul>
+<ul>
+<li>过去的思路像是：</li>
+<ul>
+<li>“我们要设计一个很复杂的补救系统。”</li>
+<li>猜错后，精准找到谁抄了错误答案，只让这些人重做。</li>
+<li>这就是 <strong>selective reissue</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这篇论文的思路更像：</li>
+<ul>
+<li>“别把补救系统搞那么复杂。”</li>
+<li>“我们只在极有把握时才提前交答案。”</li>
+<li>“宁可少猜一点，也要保证猜的时候几乎不出错。”</li>
+<li>这样即使发现错了再全组返工，也很少发生，所以整体仍然划算。</li>
+</ul>
+</ul>
+<ul>
+<li>这就是本文第一个核心洞察：</li>
+<ul>
+<li><strong>Value Prediction 的工程落地点，不是最大化 coverage，而是把 accuracy 推到极高。</strong></li>
+<li><strong>coverage 可以牺牲一点，misprediction 必须极少。</strong></li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招一：FPC，把“经常猜”改成“足够确定才猜”</strong></p>
+<ul>
+<li>作者没有重新设计一个庞大的预测器。</li>
+<li>作者是在所有 predictor 外面加了一个非常朴素但有效的“刹车系统”：<strong>Forward Probabilistic Counters，FPC</strong>。</li>
+</ul>
+<ul>
+<li>传统 confidence counter 的逻辑大概是：</li>
+<ul>
+<li>猜对一次，confidence 加一。</li>
+<li>猜错一次，confidence 清零。</li>
+<li>counter 满了，就认为这个预测可信。</li>
+</ul>
+</ul>
+<ul>
+<li>问题是：</li>
+<ul>
+<li>3-bit counter 太容易满。</li>
+<li>一个 predictor 可能只是“最近运气好”，还没真的稳定。</li>
+<li>用这种 confidence 去做 commit-time validation，还是会有太多误预测。</li>
+</ul>
+</ul>
+<ul>
+<li>FPC 的巧妙点在于：</li>
+<ul>
+<li><strong>猜对了也不一定加 confidence。</strong></li>
+<li>越接近高 confidence，越难往前走。</li>
+<li>猜错则直接 reset。</li>
+<li>于是，一个 entry 想达到“可使用”状态，必须经历很长一段稳定正确期。</li>
+</ul>
+</ul>
+<ul>
+<li>直觉上，它把 confidence counter 从“短期热情”变成了“长期信用记录”。</li>
+<ul>
+<li>普通 counter 像是：</li>
+<ul>
+<li>连续答对几题，就觉得这个学生很靠谱。</li>
+</ul>
+<li>FPC 像是：</li>
+<ul>
+<li>连续稳定很久，才给他免检资格。</li>
+<li>一旦错一次，信用归零。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这个转换非常关键：</li>
+<ul>
+<li>作者没有让 predictor 本身更复杂。</li>
+<li>而是让 <strong>使用预测结果的门槛更严格</strong>。</li>
+<li>结果是：</li>
+<ul>
+<li><strong>accuracy 提升到约99.7%以上</strong></li>
+<li><strong>coverage 有所下降</strong></li>
+<li>但整体性能反而更稳，因为误预测恢复成本被压住了。</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>机制</th>
+<th>核心逻辑</th>
+<th>结果</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>普通 confidence counter</td>
+<td>猜对就加，满了就用</td>
+<td>coverage 较高，但误预测仍偏多</td>
+</tr>
+<tr>
+<td><strong>FPC</strong></td>
+<td>猜对也只是概率性前进，猜错清零</td>
+<td><strong>accuracy 极高</strong>，适合 commit-time validation</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>这就是本文最实用的工程观点：</li>
+<ul>
+<li><strong>与其设计昂贵的修错机制，不如设计一个极保守的用错预防机制。</strong></li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招二：commit-time validation，把复杂性从 OoO engine 挪出去</strong></p>
+<ul>
+<li>有了 FPC 之后，作者敢做一件过去看起来很冒险的事：</li>
+<ul>
+<li><strong>不在 execution-time 验证预测值。</strong></li>
+<li><strong>等到 commit-time 再验证。</strong></li>
+</ul>
+</ul>
+<ul>
+<li>这件事的价值非常大。</li>
+<ul>
+<li>execution-time validation 意味着：</li>
+<ul>
+<li>predicted value 要进入乱序核心。</li>
+<li>每个预测结果都要在执行时比对。</li>
+<li>错了要复杂恢复。</li>
+</ul>
+<li>commit-time validation 意味着：</li>
+<ul>
+<li>前端负责预测。</li>
+<li>后端 commit 阶段负责验证和训练。</li>
+<li>OoO engine 只需要少量改动，主要是能把预测值写进 physical register。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这其实是一次“复杂性搬家”：</li>
+<ul>
+<li>不再让 OoO core 背负全部复杂性。</li>
+<li>把 Value Prediction 变成一个更像 branch predictor 的外围增强模块。</li>
+<li>前端预测，后端校验，中间尽量少碰。</li>
+</ul>
+</ul>
+<ul>
+<li>这篇论文非常强调这个工程意义：</li>
+<ul>
+<li><strong>如果 accuracy 足够高，复杂 selective reissue 的收益就很小。</strong></li>
+<li>因为错得太少了，修错机制再快也发挥不了多少价值。</li>
+</ul>
+</ul>
+<figure><img src="../images/c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li>这张结果的直觉含义很简单：</li>
+<ul>
+<li>加了 <strong>FPC</strong> 后，用简单的 <strong>squashing at commit</strong> 也能稳定获得性能收益。</li>
+<li>没加 FPC 时，一些 benchmark 会被误预测拖慢。</li>
+<li>这说明核心不在于“恢复机制多高级”，而在于“别轻易犯错”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>痛点再深入：传统 context-based predictor 为什么在 tight loop 里很尴尬</strong></p>
+<ul>
+<li>本文第二个大问题是 predictor latency。</li>
+<li>这不是普通意义上的“查表慢一点”。</li>
+<li>对 Value Prediction 来说，最尴尬的是：</li>
+<ul>
+<li>tight loop 中同一条静态指令连续出现。</li>
+<li>当前 instance 的预测，可能依赖上一轮 instance 的结果。</li>
+<li>但上一轮结果可能还没执行完，甚至还没出 dispatch。</li>
+</ul>
+</ul>
+<ul>
+<li>对 <strong>Stride Predictor</strong> 来说：</li>
+<ul>
+<li>它需要上一轮的 value 和 stride。</li>
+<li>如果连续预测同一条指令，需要把上一次预测结果快速 bypass 给下一次。</li>
+<li>这个还算勉强可做，因为逻辑主要是加法。</li>
+</ul>
+</ul>
+<ul>
+<li>对 <strong>FCM</strong> 这类 local value history predictor 来说，问题更糟：</li>
+<ul>
+<li>它要维护某条指令最近几个 value 的 history。</li>
+<li>用 history hash 后再查第二级表。</li>
+<li>如果同一条指令连续出现，下一次预测依赖上一次预测更新后的 history。</li>
+<li>于是形成一个很短、很紧的 critical loop：</li>
+<ul>
+<li>读 history</li>
+<li>hash</li>
+<li>查表</li>
+<li>得到 predicted value</li>
+<li>更新 speculative history</li>
+<li>再给下一次用</li>
+</ul>
+</ul>
+</ul>
+<figure><img src="../images/ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" alt="" loading="lazy"> <em>Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.</em></figure>
+<ul>
+<li>这张图最重要的不是箭头，而是它揭示的工程矛盾：</li>
+<ul>
+<li><strong>LVP</strong>：只看 PC，连续预测互不依赖，查表可以慢一点。</li>
+<li><strong>Stride</strong>：有依赖，但逻辑较轻，还可以硬件 bypass。</li>
+<li><strong>FCM</strong>：连续预测要经过 history/hash/table 的长链路，很难在 tight loop 中及时完成。</li>
+</ul>
+</ul>
+<ul>
+<li>换句话说：</li>
+<ul>
+<li>FCM 理论上很优雅。</li>
+<li>但在现代 wide fetch、deep pipeline、tight loop 场景里，硬件实现非常别扭。</li>
+<li>它为了理解“值的局部历史”，把自己绑进了一个 latency critical loop。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>通俗比方：VTAGE 的顿悟点</strong></p>
+<ul>
+<li>传统 FCM 像是：</li>
+<ul>
+<li>“我要预测你下一句话，就必须记住你自己前面说过的几句话。”</li>
+<li>如果你说话很快，我还没记完上一句，你下一句已经来了。</li>
+<li>系统就卡住了。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong> 的思路像是：</li>
+<ul>
+<li>“我不直接追你前面说过的值。”</li>
+<li>“我看你是在什么剧情分支下说这句话。”</li>
+<li>“只要剧情路径相似，你很可能说出相似答案。”</li>
+</ul>
+</ul>
+<ul>
+<li>换成处理器语言：</li>
+<ul>
+<li>FCM 使用的是 <strong>local value history</strong>。</li>
+<li>VTAGE 使用的是 <strong>global branch history + path history</strong>。</li>
+<li>它预测某条指令的值时，不依赖这条指令前几次产生的 value。</li>
+<li>它依赖的是程序最近走过哪些 control-flow path。</li>
+</ul>
+</ul>
+<ul>
+<li>这就很妙：</li>
+<ul>
+<li>branch history 本来就有，branch predictor 已经维护了。</li>
+<li>VTAGE 借用这份上下文。</li>
+<li>不需要追踪每条指令的 speculative value history。</li>
+<li>不会因为同一条指令 back-to-back 出现而形成预测链路依赖。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招三：VTAGE，把“值历史上下文”替换成“控制流上下文”</strong></p>
+<ul>
+<li>作者并没有沿着 FCM 的路继续优化 hash 或压缩 value history。</li>
+<li>作者做了一个更聪明的替换：</li>
+<ul>
+<li>把 context-based value prediction 的 context 从 <strong>value history</strong> 换成 <strong>branch/path history</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong> 来自 <strong>TAGE/ITTAGE</strong> 的思想。</li>
+<ul>
+<li>TAGE 原本用于 branch prediction。</li>
+<li>ITTAGE 用于 indirect branch target prediction。</li>
+<li>indirect branch target 本质上也是一个“值”。</li>
+<li>所以作者顺势把这个结构改造成 value predictor。</li>
+</ul>
+</ul>
+<ul>
+<li>VTAGE 的基本工作方式：</li>
+<ul>
+<li>一个 base predictor 类似 <strong>LVP</strong>，只看 PC。</li>
+<li>多个 tagged tables 使用不同长度的 global branch history。</li>
+<li>history length 按几何级数增长。</li>
+<li>所有表并行查。</li>
+<li>命中最长历史的表作为 provider。</li>
+<li>只有 confidence 饱和时才真正使用预测。</li>
+</ul>
+</ul>
+<figure><img src="../images/6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" alt="" loading="lazy"> <em>Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.</em></figure>
+<ul>
+<li>这里的关键不是“多表结构”本身，而是这个逻辑转换：</li>
+<ul>
+<li>传统 context predictor 问：</li>
+<ul>
+<li>“这条指令过去产生过什么值？”</li>
+</ul>
+<li>VTAGE 问：</li>
+<ul>
+<li>“程序最近走过什么路径？在这种路径下，这条指令通常产生什么值？”</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这带来两个直接好处：</li>
+<ul>
+<li><strong>避免 tight loop 中的 value-history critical path</strong></li>
+<ul>
+<li>不依赖上一轮预测值。</li>
+<li>back-to-back occurrence 可以自然预测。</li>
+</ul>
+<li><strong>捕捉 control-flow dependent values</strong></li>
+<ul>
+<li>很多值不是简单 stride，而是由分支路径决定。</li>
+<li>VTAGE 对这类模式更自然。</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>Predictor</th>
+<th>依赖什么上下文</th>
+<th>tight loop 连续预测</th>
+<th>工程直觉</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td>PC</td>
+<td>容易</td>
+<td>简单，但表达力有限</td>
+</tr>
+<tr>
+<td><strong>Stride</strong></td>
+<td>上一次 value + stride</td>
+<td>中等</td>
+<td>适合线性变化</td>
+</tr>
+<tr>
+<td><strong>FCM</strong></td>
+<td>local value history</td>
+<td>困难</td>
+<td>理论强，硬件链路紧</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>global branch/path history</td>
+<td>容易</td>
+<td>借 control-flow 预测 data value</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>整体贡献：这篇论文真正把 Value Prediction 往“可实现”推了一步</strong></p>
+<ul>
+<li>这篇论文的贡献可以理解成两条线并行推进：</li>
+</ul>
+<table>
+<thead><tr>
+<th>贡献</th>
+<th>解决的问题</th>
+<th>核心思想</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>FPC confidence</strong></td>
+<td>误预测太贵，复杂恢复机制难落地</td>
+<td>少预测一点，但预测时极准</td>
+</tr>
+<tr>
+<td><strong>commit-time validation</strong></td>
+<td>execution-time validation 和 selective reissue 太复杂</td>
+<td>把验证放到 commit，减少 OoO engine 侵入</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td>FCM 在 tight loop/back-to-back prediction 中硬件链路太紧</td>
+<td>用 branch/path history 替代 local value history</td>
+</tr>
+<tr>
+<td><strong>VTAGE + 2D-Stride hybrid</strong></td>
+<td>单一 predictor 覆盖面有限</td>
+<td>control-flow pattern 和 stride pattern 互补</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>这不是单点优化，而是一整套工程路线：</li>
+<ul>
+<li><strong>用 FPC 把误预测率压低。</strong></li>
+<li><strong>用 commit-time validation 简化恢复。</strong></li>
+<li><strong>用 VTAGE 避免 local value predictor 的 latency 陷阱。</strong></li>
+<li><strong>用 hybrid predictor 覆盖更多 value pattern。</strong></li>
+</ul>
+</ul>
+<hr>
+<p><strong>实验结果的直觉解读</strong></p>
+<ul>
+<li>完美 Value Predictor 的上界很高。</li>
+<ul>
+<li>一些 benchmark 理论上能有数倍 speedup。</li>
+<li>说明程序里确实存在大量 data dependency bottleneck。</li>
+<li>Value Prediction 不是没有潜力，而是过去落地方式太痛苦。</li>
+</ul>
+</ul>
+<figure><img src="../images/55306c8edb2e9db1a5e9e9f74c3b5fb63e61fbc3131bccd308b2f245ba855978.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li>加入 <strong>FPC</strong> 后，结果更稳。</li>
+<ul>
+<li>baseline confidence counter 下，一些 benchmark 会 slowdown。</li>
+<li>FPC 牺牲 coverage，换来极高 accuracy。</li>
+<li>最终在多数 benchmark 上避免负收益。</li>
+</ul>
+</ul>
+<figure><img src="../images/2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg" alt="" loading="lazy"></figure>
+<figure><img src="../images/2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li><strong>VTAGE + 2D-Stride</strong> 的 hybrid 效果最好。</li>
+<ul>
+<li>Stride 擅长规则数值变化。</li>
+<li>VTAGE 擅长 control-flow 相关的值。</li>
+<li>两者不是互相替代，而是互补。</li>
+</ul>
+</ul>
+<figure><img src="../images/b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li>最值得注意的结论是：</li>
+<ul>
+<li>在 <strong>FPC</strong> 加持下，复杂的 <strong>selective reissue</strong> 相比简单的 <strong>commit-time squashing</strong> 没有明显优势。</li>
+<li>这说明作者的路线成立：</li>
+<ul>
+<li><strong>不是把错误修得更快，而是让错误极少发生。</strong></li>
+</ul>
+</ul>
+</ul>
+<hr>
+<p><strong>这篇论文的“顿悟点”</strong></p>
+<ul>
+<li>过去大家看 Value Prediction，容易执着于两个方向：</li>
+<ul>
+<li>predictor 覆盖率更高。</li>
+<li>recovery 机制更精细。</li>
+</ul>
+</ul>
+<ul>
+<li>这篇论文反过来想：</li>
+<ul>
+<li><strong>coverage 不是第一目标，净收益才是第一目标。</strong></li>
+<li><strong>如果错一次代价巨大，那就只在极高置信度时下注。</strong></li>
+<li><strong>如果 OoO engine 很贵，那就别把复杂性塞进 OoO engine。</strong></li>
+<li><strong>如果 value history predictor 卡在 back-to-back prediction，那就换一种 context。</strong></li>
+</ul>
+</ul>
+<ul>
+<li>所以它的核心创新不是某个花哨公式，而是一个非常工程化的取舍：</li>
+<ul>
+<li><strong>用保守 confidence 换简单恢复。</strong></li>
+<li><strong>用 branch history 换 value history。</strong></li>
+<li><strong>用系统级可实现性换理论上的最大 coverage。</strong></li>
+</ul>
+</ul>
+<hr>
+<p><strong>给研究生的最终理解</strong></p>
+<ul>
+<li>如果用一句导师式的话概括：</li>
+<ul>
+<li><strong>这篇论文把 Value Prediction 从“高收益但高风险的赌博”，改造成“只在赔率极好时下注的稳健投机”。</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>FPC</strong> 是风险控制器：</li>
+<ul>
+<li>它保证你只有在几乎确定时才预测。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>commit-time validation</strong> 是工程简化器：</li>
+<ul>
+<li>它避免把 OoO engine 改成一台复杂的纠错机器。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong> 是上下文替换器：</li>
+<ul>
+<li>它不再盯着每条指令自己的 value history，而是利用程序走过的 control-flow path 来预测值。</li>
+</ul>
+</ul>
+<ul>
+<li>这三者合起来，才是论文真正的贡献：</li>
+<ul>
+<li><strong>让 Value Prediction 看起来不再只是漂亮的学术想法，而是有可能进入未来高端处理器设计空间的工程方案。</strong></li>
+</ul>
+</ul>
+<h3 id="1-forward-probabilistic-countersfpc置信度机制">1. Forward Probabilistic Counters（FPC）置信度机制<a class="anchor" href="#1-forward-probabilistic-countersfpc置信度机制">#</a></h3>
+<p><strong>痛点直击：为什么普通置信度计数器不够用</strong></p>
+<ul>
+<li><strong>Value Prediction</strong>最尴尬的地方不是“预测不准”，而是<strong>错一次太贵，赚一次太少</strong>。</li>
+<ul>
+<li>一次正确的值预测，可能只帮你省掉一点点 data dependency 等待时间。</li>
+<li>一次错误的值预测，如果用 <strong>pipeline squashing at commit</strong> 恢复，可能要等到提交阶段才发现，代价接近几十个 cycles。</li>
+<li>所以它不像 branch prediction 那样可以容忍一定错误率；<strong>Value Prediction 的收益-风险比非常苛刻</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>传统做法通常是：</li>
+<ul>
+<li>给每个 predictor entry 配一个普通 <strong>3-bit saturating counter</strong>。</li>
+<li>预测对了，counter 加 1。</li>
+<li>预测错了，counter 清零。</li>
+<li>只有 counter 饱和时才相信预测。</li>
+</ul>
+</ul>
+<ul>
+<li>问题在于：<strong>普通 3-bit counter 太容易重新获得信任</strong>。</li>
+<ul>
+<li>从 0 涨到饱和只需要连续对几次。</li>
+<li>对于那些“短期看起来稳定、长期偶尔爆雷”的指令，它会很快重新进入高置信状态。</li>
+<li>结果就是：accuracy 看起来已经有 <strong>95%–99%</strong>，但在 Value Prediction 里仍然不够。</li>
+<li>因为 <strong>1% 的错误率</strong> 在 commit-time squash 场景下仍然可能把性能收益吃掉。</li>
+</ul>
+</ul>
+<ul>
+<li>这篇论文的关键判断是：</li>
+<ul>
+<li>不要先想着设计复杂的 selective reissue。</li>
+<li>先把错误预测数量压到极低。</li>
+<li>只要 accuracy 足够高，哪怕恢复机制很粗暴、很慢，也还能赚钱。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>机制</th>
+<th>直觉问题</th>
+<th>后果</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>普通 3-bit counter</td>
+<td>太快恢复信任</td>
+<td>偶发错误仍然太多</td>
+</tr>
+<tr>
+<td>selective reissue</td>
+<td>错误代价低，但硬件复杂</td>
+<td>OoO engine 改动大</td>
+</tr>
+<tr>
+<td>commit-time squash</td>
+<td>硬件简单，但错误代价高</td>
+<td>必须极高 accuracy</td>
+</tr>
+<tr>
+<td><strong>FPC</strong></td>
+<td>慢慢恢复信任，错了立刻清零</td>
+<td>用 coverage 换极高 accuracy</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>通俗比方：FPC 像“超级保守的实习生转正制度”</strong></p>
+<ul>
+<li>想象你有一个实习生，每次都帮你提前填表。</li>
+<ul>
+<li>填对一次，你省一点时间。</li>
+<li>填错一次，你要返工整份文件，损失很大。</li>
+<li>所以你不可能说：“他最近连续对了 7 次，那以后就完全信他。”</li>
+</ul>
+</ul>
+<ul>
+<li>普通 <strong>3-bit counter</strong> 的逻辑像是：</li>
+<ul>
+<li>“连续表现好几次，就转正。”</li>
+<li>问题是，这对 Value Prediction 太乐观。</li>
+<li>因为这个实习生可能只是刚好最近几次简单，真正复杂场景下还是会错。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FPC</strong> 的逻辑更像是：</li>
+<ul>
+<li>“你每次做对，我不一定给你加分。”</li>
+<li>“你可能做对 16 次，我才给你涨 1 格。”</li>
+<li>“但只要你错一次，直接回到实习第一天。”</li>
+<li>“只有经历很长一段稳定表现后，我才让你独立处理任务。”</li>
+</ul>
+</ul>
+<ul>
+<li>这个比方的重点是：</li>
+<ul>
+<li><strong>正确不会立刻赢得信任</strong>。</li>
+<li><strong>错误会瞬间失去信任</strong>。</li>
+<li>FPC 不是让 predictor 更聪明，而是让 processor <strong>更难被骗</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>所以 FPC 的本质不是“预测算法”，而是一个<strong>信任闸门</strong>：</li>
+<ul>
+<li>predictor 负责提出答案。</li>
+<li>FPC 负责判断：“这个答案配不配被使用？”</li>
+<li>大量“看起来可能对”的预测被挡掉。</li>
+<li>留下来的预测虽然少一点，但非常可靠。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招：把“每次对就加分”改成“对了也只是概率加分”</strong></p>
+<ul>
+<li>作者没有重做 Value Predictor。</li>
+<ul>
+<li>没有发明新的值模式识别逻辑。</li>
+<li>没有要求 predictor 理解更复杂的数据流。</li>
+<li>没有依赖昂贵的 selective reissue。</li>
+<li>而是在 predictor 后面加了一个非常保守的 <strong>confidence filter</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>原来的流程大概是：</li>
+<ul>
+<li>predictor 给出预测值。</li>
+<li>confidence counter 判断是否高置信。</li>
+<li>如果 counter 饱和，就使用预测。</li>
+<li>正确则 counter 加 1。</li>
+<li>错误则 counter 清零。</li>
+</ul>
+</ul>
+<ul>
+<li>FPC 改掉的就是最关键的一步：</li>
+<ul>
+<li>原来：<strong>预测正确，counter 必然前进一步</strong>。</li>
+<li>现在：<strong>预测正确，counter 只是以很小概率前进一步</strong>。</li>
+<li>错误时仍然非常严厉：<strong>counter 直接 reset</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这个变化非常小，但逻辑很狠：</li>
+<ul>
+<li>想获得高置信，必须经历很多次正确预测。</li>
+<li>偶然连续对几次不够。</li>
+<li>中间只要错一次，所有信用清零。</li>
+<li>于是能达到饱和状态的 entry，通常确实是长期稳定的 entry。</li>
+</ul>
+</ul>
+<ul>
+<li>可以把 FPC 理解成：</li>
+<ul>
+<li>普通 counter 问的是：“你最近是不是对了几次？”</li>
+<li><strong>FPC</strong> 问的是：“你是不是在很长时间里几乎一直对？”</li>
+<li>这两个问题差别很大。</li>
+<li>Value Prediction 需要的是后者。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>它为什么特别适合 Value Prediction</strong></p>
+<ul>
+<li><strong>Value Prediction</strong> 与 <strong>Branch Prediction</strong> 的风险结构不同。</li>
+<ul>
+<li>branch prediction 不预测就没法高效取指，所以必须大胆猜。</li>
+<li>value prediction 可以选择不用预测，保守一点没关系。</li>
+<li>因此 Value Prediction 更适合采用“宁可少用，也别用错”的策略。</li>
+</ul>
+</ul>
+<ul>
+<li>FPC 正好利用了这个特点：</li>
+<ul>
+<li>它牺牲一部分 <strong>coverage</strong>。</li>
+<li>换来极高 <strong>accuracy</strong>。</li>
+<li>论文中各类 predictor 使用 FPC 后，accuracy 可以达到 <strong>99.5% 以上</strong>，很多实验里甚至超过 <strong>99.7%</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这让系统设计发生了变化：</li>
+<ul>
+<li>没有 FPC 时，错误还比较多，需要复杂的 <strong>selective reissue</strong> 来降低错误代价。</li>
+<li>有 FPC 后，错误极少，即使采用简单的 <strong>commit-time squash</strong>，总体损失也很小。</li>
+<li>于是 Value Prediction 的硬件复杂度可以从 OoO engine 中挪出去，主要留在 front-end prediction 和 back-end validation。</li>
+</ul>
+</ul>
+<figure><img src="../images/2e3e4dfe6424f186841c0b717973baac2d7885514b649795b888f18f126a6e2b.jpg" alt="" loading="lazy"></figure>
+<figure><img src="../images/2a95ecee42131dbac513cdff98d0b4a6f4272f65fa58de2bf75a466dbc14b345.jpg" alt="" loading="lazy"></figure>
+<hr>
+<p><strong>一句话抓住 FPC</strong></p>
+<ul>
+<li><strong>FPC 的聪明之处，不是让值预测器猜得更准，而是让处理器只相信那些“长期经受住考验”的预测。</strong></li>
+</ul>
+<ul>
+<li>它把 Value Prediction 从一个“高收益但高风险”的机制，改造成了一个更工程化的策略：</li>
+<ul>
+<li>预测器可以大胆地产生候选值。</li>
+<li>FPC 极其保守地决定是否使用。</li>
+<li>错了立刻拉黑。</li>
+<li>对了也慢慢恢复信用。</li>
+<li>最终用一点 <strong>coverage</strong> 换来足够高的 <strong>accuracy</strong>，从而避免复杂恢复机制。</li>
+</ul>
+</ul>
+<ul>
+<li>最直观的理解是：</li>
+<ul>
+<li><strong>普通 counter 是“连续对几次就信你”。</strong></li>
+<li><strong>FPC 是“你得长期稳定，我才偶尔给你涨一点信用”。</strong></li>
+<li>对 Value Prediction 来说，后者才是能落地的工程逻辑。</li>
+</ul>
+</ul>
+<h3 id="2-提交阶段验证与流水线清空恢复机制">2. 提交阶段验证与流水线清空恢复机制<a class="anchor" href="#2-提交阶段验证与流水线清空恢复机制">#</a></h3>
+<p><strong>痛点直击：为什么要把验证拖到提交阶段？</strong></p>
+<ul>
+<li><strong>值预测 Value Prediction</strong>真正麻烦的地方，不是“能不能猜中”，而是<strong>猜错以后谁来收拾残局</strong>。</li>
+</ul>
+<ul>
+<li>传统直觉会说：</li>
+<ul>
+<li>既然值预测可能错，那就应该在<strong>执行阶段 execution time</strong>尽早发现错误。</li>
+<li>一旦发现错误，就只重放受影响的依赖指令，也就是<strong>selective reissue</strong>。</li>
+<li>听起来很优雅：错哪儿修哪儿，不要整条流水线推倒重来。</li>
+</ul>
+</ul>
+<ul>
+<li>但问题在于，<strong>selective reissue 对乱序执行引擎太不友好了</strong>：</li>
+<ul>
+<li>乱序窗口里有很多指令已经基于预测值提前执行。</li>
+<li>一旦某个预测值错了，硬件必须知道：</li>
+<ul>
+<li>哪些指令直接用了这个错值；</li>
+<li>哪些指令间接依赖这些错误结果；</li>
+<li>哪些 load/store 也可能被污染；</li>
+<li>哪些结果需要取消；</li>
+<li>哪些指令需要重新调度；</li>
+<li>哪些队列项还要保留，不能释放。</li>
+</ul>
+<li>这等于让 <strong>OoO engine</strong> 不仅负责调度执行，还要额外维护一套复杂的“错误传播追踪系统”。</li>
+</ul>
+</ul>
+<ul>
+<li>更糟的是，值预测和分支预测不一样：</li>
+<ul>
+<li><strong>分支预测</strong>错一次，通常清空后从正确路径重新取指。</li>
+<li><strong>值预测</strong>可能在紧密循环里连续预测同一条指令的多个动态实例。</li>
+<li>第一个实例错了，后面的实例可能也已经基于错误状态继续预测和执行。</li>
+<li>所以 selective reissue 并不总是“便宜修复”，有时会变成一串连环返工。</li>
+</ul>
+</ul>
+<ul>
+<li>作者的核心判断非常现实：</li>
+<ul>
+<li>与其为了少数误预测，把整个乱序后端改得又复杂又耗电；</li>
+<li>不如让预测器<strong>极其保守</strong>，把误预测率压到极低；</li>
+<li>然后接受一种简单粗暴但容易实现的恢复方式：<strong>提交阶段验证 + 流水线清空</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这就是本文的工程取舍：</li>
+<ul>
+<li><strong>预测放在有序前端</strong>；</li>
+<li><strong>验证和训练放在有序提交阶段</strong>；</li>
+<li><strong>乱序执行引擎尽量不动</strong>；</li>
+<li>误预测时直接像处理 branch misprediction 一样进行 <strong>pipeline squashing</strong>。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>恢复方式</th>
+<th style="text-align:right">验证位置</th>
+<th style="text-align:right">硬件复杂度</th>
+<th style="text-align:right">单次误预测代价</th>
+<th>适合条件</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>selective reissue</strong></td>
+<td style="text-align:right">执行阶段</td>
+<td style="text-align:right">很高</td>
+<td style="text-align:right">低</td>
+<td>预测准确率不够高时</td>
+</tr>
+<tr>
+<td><strong>pipeline squashing at execution</strong></td>
+<td style="text-align:right">执行阶段</td>
+<td style="text-align:right">中高</td>
+<td style="text-align:right">中</td>
+<td>需要较早发现错误</td>
+</tr>
+<tr>
+<td><strong>pipeline squashing at commit</strong></td>
+<td style="text-align:right">提交阶段</td>
+<td style="text-align:right">低</td>
+<td style="text-align:right">高</td>
+<td>预测准确率极高时</td>
+</tr>
+</tbody>
+</table>
+<figure><img src="../images/c441c19313d3895aad8a4021ca8cfc130c2ef4b55b3fe44ca37f631e75790cb1.jpg" alt="" loading="lazy"></figure>
+<hr>
+<p><strong>通俗比方：这不是“现场修机器”，而是“出厂终检”</strong></p>
+<ul>
+<li>可以把乱序执行引擎想成一个高速工厂：</li>
+<ul>
+<li>指令像零件；</li>
+<li>依赖关系像装配链；</li>
+<li>值预测像提前给某个零件贴了一个“估计尺寸”；</li>
+<li>后面的工序看到这个尺寸，就可以不用等真实测量结果，直接开工。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>selective reissue</strong>像是在生产线上安排一群质检员：</li>
+<ul>
+<li>每个工位都要检查有没有用了错误尺寸；</li>
+<li>一旦发现错了，就要把相关半成品从流水线上挑出来；</li>
+<li>还要追踪哪些后续零件被它影响；</li>
+<li>再把这些零件插回生产线重做。</li>
+<li>好处是浪费少，坏处是工厂管理系统极其复杂。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>提交阶段验证 + 流水线清空</strong>像是把质检集中到出厂口：</li>
+<ul>
+<li>生产线中间不管那么多；</li>
+<li>到最后统一检查预测值是否等于真实值；</li>
+<li>如果没问题，产品出厂，同时用真实结果训练预测器；</li>
+<li>如果发现错了，就把这批还没出厂的产品全部报废，从正确状态重新开始。</li>
+</ul>
+</ul>
+<ul>
+<li>这听上去很浪费，但关键在于作者加了一个前提：</li>
+<ul>
+<li><strong>我只让特别有把握的预测进入生产线</strong>。</li>
+<li>如果预测器没把握，就干脆不预测。</li>
+<li>所以“整批报废”发生得极少。</li>
+<li>一旦误预测率低到 <strong>0.5% 甚至更低</strong>，简单清空反而比复杂修补更划算。</li>
+</ul>
+</ul>
+<ul>
+<li>这个思维模型的顿悟点是：</li>
+<ul>
+<li>作者不是在降低每次错误的修复成本；</li>
+<li>作者是在让错误少到几乎不用优化修复路径。</li>
+<li>也就是从“<strong>错了怎么精细修</strong>”，转向“<strong>尽量别错，错了就重来</strong>”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招：把复杂性从 OoO 后端挪到置信度控制上</strong></p>
+<ul>
+<li>作者没有试图把 <strong>selective reissue</strong> 做得更聪明。</li>
+</ul>
+<ul>
+<li>作者真正的转换是：</li>
+<ul>
+<li>原流程关注：<strong>执行阶段尽早验证预测值</strong>；</li>
+<li>新流程改成：<strong>提交阶段才验证预测值</strong>。</li>
+<li>原流程需要：乱序后端追踪错误传播；</li>
+<li>新流程只需要：提交时比较预测值和真实值。</li>
+</ul>
+</ul>
+<ul>
+<li>更具体地说，作者把值预测流程拆成三个位置：</li>
+</ul>
+<table>
+<thead><tr>
+<th>阶段</th>
+<th>做什么</th>
+<th style="text-align:right">是否有序</th>
+<th>对硬件的影响</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>front-end</strong></td>
+<td>生成值预测</td>
+<td style="text-align:right">有序</td>
+<td>增加 predictor lookup</td>
+</tr>
+<tr>
+<td><strong>dispatch 前</strong></td>
+<td>把预测值写入物理寄存器</td>
+<td style="text-align:right">有序到乱序边界</td>
+<td>需要额外写端口或缓冲</td>
+</tr>
+<tr>
+<td><strong>commit</strong></td>
+<td>验证、训练、误预测清空</td>
+<td style="text-align:right">有序</td>
+<td>逻辑简单</td>
+</tr>
+<tr>
+<td><strong>OoO engine</strong></td>
+<td>正常调度和执行</td>
+<td style="text-align:right">乱序</td>
+<td>基本不追踪 VP 错误传播</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>最巧妙的地方在于：</li>
+<ul>
+<li>预测值被当作一个“临时真实值”写入物理寄存器；</li>
+<li>后续依赖指令可以直接读取它并提前执行；</li>
+<li>等真实执行结果产生后，它可以覆盖预测值；</li>
+<li>到 <strong>commit</strong> 时再检查这条指令当初的预测是否正确。</li>
+</ul>
+</ul>
+<ul>
+<li>如果预测正确：</li>
+<ul>
+<li>指令正常提交；</li>
+<li>predictor 用真实值更新；</li>
+<li>整个乱序后端几乎没有感知到发生过 speculation。</li>
+</ul>
+</ul>
+<ul>
+<li>如果预测错误：</li>
+<ul>
+<li>检查是否有依赖指令已经使用了错误预测值；</li>
+<li>如果没有用到，就不需要恢复；</li>
+<li>如果已经用到，就触发 <strong>pipeline squashing</strong>；</li>
+<li>从最后一个正确提交状态重新开始。</li>
+</ul>
+</ul>
+<ul>
+<li>这里的关键前提是 <strong>FPC Forward Probabilistic Counters</strong>：</li>
+<ul>
+<li>预测器不是每次有预测都用；</li>
+<li>只有 confidence counter 达到饱和，才允许使用预测；</li>
+<li>一旦误预测，confidence 直接重置；</li>
+<li>正确时也不是每次都快速增加 confidence，而是用低概率慢慢增加。</li>
+<li>这会让 predictor 变得非常“谨慎”。</li>
+</ul>
+</ul>
+<ul>
+<li>这一步本质上是在做一个工程替换：</li>
+<ul>
+<li>用<strong>更严格的置信度门控</strong>，替换<strong>复杂的错误恢复机制</strong>。</li>
+<li>用<strong>覆盖率 coverage 的一部分损失</strong>，换取<strong>准确率 accuracy 的大幅提升</strong>。</li>
+<li>用<strong>偶尔整条流水线清空</strong>，避免<strong>长期背负 selective reissue 的硬件复杂性</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这也是为什么论文强调：</li>
+<ul>
+<li>在 FPC 之后，误预测率已经足够低；</li>
+<li>此时 selective reissue 即使是理想化的 0-cycle reissue，收益也不明显；</li>
+<li>因为瓶颈已经不是“错误恢复太慢”，而是“预测本身能提供多少有效加速”。</li>
+</ul>
+</ul>
+<ul>
+<li>一句话概括：</li>
+<ul>
+<li><strong>作者并没有让后端更会修错，而是让前端更少犯错；然后把验证推迟到最容易管理的提交阶段，用一次简单清空代替复杂的乱序修补。</strong></li>
+</ul>
+</ul>
+<ul>
+<li>这个设计的真正价值不是“pipeline squashing 很快”。</li>
+<ul>
+<li>它并不快，commit-time squashing 单次代价甚至很高。</li>
+<li>真正价值是：<strong>它便宜、简单、边界清晰，而且在超高准确率下足够好</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>对研究生来说，可以把这个技术点记成一句工程哲学：</li>
+<ul>
+<li><strong>当错误极少时，最好的恢复机制往往不是最精细的，而是最简单、最可靠、最不污染核心结构的。</strong></li>
+</ul>
+</ul>
+<h3 id="3-vtage全局控制流上下文值预测器">3. VTAGE全局控制流上下文值预测器<a class="anchor" href="#3-vtage全局控制流上下文值预测器">#</a></h3>
+<p><strong>痛点直击：为什么需要VTAGE</strong></p>
+<ul>
+<li>传统<strong>context-based value predictor</strong>最难受的地方，不是“不会预测”，而是<strong>预测下一次值时太依赖上一次值</strong>。</li>
+<ul>
+<li>比如<strong>FCM</strong>要先拿到某条指令最近几次产生的值，形成<strong>local value history</strong>，再用这个 history 去查预测表。</li>
+<li>问题来了：如果这条指令在一个很紧的 loop 里连续出现，上一轮的值可能还没执行出来，下一轮预测已经要做了。</li>
+<li>这就形成了一个很讨厌的硬件临界环：</li>
+<ul>
+<li>上一次预测值要立刻更新 history；</li>
+<li>history 要立刻 hash；</li>
+<li>hash 后还要立刻查第二级表；</li>
+<li>下一次预测还要赶在 Dispatch 前给出来。</li>
+</ul>
+<li>这不是算法上不能做，而是<strong>硬件时序上很难做大、做快、做稳</strong>。</li>
+</ul>
+</ul>
+<figure><img src="../images/ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" alt="" loading="lazy"> <em>Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.</em></figure>
+<ul>
+<li><strong>Stride predictor</strong>稍微好一点，但也有类似问题。</li>
+<ul>
+<li>它只需要上一值加 stride。</li>
+<li>可是 tight loop 里仍然要把上一轮 speculative prediction 快速旁路给下一轮。</li>
+<li>临界路径比 FCM 短，但仍然需要特殊处理。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>LVP</strong>最简单，直接用 PC 查上次值。</li>
+<ul>
+<li>它没有 back-to-back 依赖，硬件舒服。</li>
+<li>但它表达能力弱，遇到“同一条指令在不同路径下产生不同值”时容易糊。</li>
+</ul>
+</ul>
+<ul>
+<li>所以真正的痛点是：</li>
+<ul>
+<li><strong>FCM表达力强但硬件难受</strong>；</li>
+<li><strong>LVP硬件舒服但表达力弱</strong>；</li>
+<li>作者想要的是：<strong>像LVP一样没有连续实例依赖，又像context predictor一样能区分上下文</strong>。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>通俗比方：VTAGE像“按剧情预测台词”，不是“按演员上句台词预测下句”</strong></p>
+<ul>
+<li>想象你在看一部剧，要预测某个角色下一句会说什么。</li>
+</ul>
+<ul>
+<li><strong>LVP</strong>的做法像是：</li>
+<ul>
+<li>“这个演员上次说的是这句话，所以这次也大概率说这句话。”</li>
+<li>简单、快。</li>
+<li>但如果这个演员在不同剧情分支里说不同台词，就不准。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FCM</strong>的做法像是：</li>
+<ul>
+<li>“我要记住这个演员最近几次说过什么，再根据这些台词序列预测下一句。”</li>
+<li>更聪明。</li>
+<li>但如果剧情节奏很快，你还没记录完上一句，下一句已经来了。</li>
+<li>这就是 tight loop 里的 back-to-back prediction 难题。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong>的做法更像：</li>
+<ul>
+<li>“我不看这个演员刚刚说过什么，我看剧情走到了哪条路线。”</li>
+<li>这里的“剧情路线”就是<strong>global branch history</strong>和<strong>path history</strong>。</li>
+<li>同一条指令在不同 if/else、不同 loop path、不同调用路径下，往往会产生不同值。</li>
+<li>VTAGE用控制流上下文来区分这些场景。</li>
+</ul>
+</ul>
+<ul>
+<li>顿悟点在这里：</li>
+<ul>
+<li><strong>值很多时候不是孤立出现的，它是控制流路径的副产品</strong>。</li>
+<li>如果程序刚刚走过某些分支，那么很多后续计算结果其实已经带有强烈暗示。</li>
+<li>VTAGE就是把“预测值”这件事，从“看数据值历史”改成了“看控制流历史”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招：把“本指令的值历史”替换成“全局控制流历史”</strong></p>
+<ul>
+<li>作者并没有发明一个完全陌生的新结构，而是把已有的<strong>ITTAGE</strong>思想搬到了 value prediction。</li>
+<ul>
+<li><strong>ITTAGE</strong>原本用于 indirect branch target prediction。</li>
+<li>indirect branch target 本质上也是一个“值”：下一跳地址。</li>
+<li>作者看到这个相似性后，把“预测 indirect target”的机制改造成“预测普通指令结果值”。</li>
+</ul>
+</ul>
+<ul>
+<li>核心替换非常关键：</li>
+<ul>
+<li>传统 FCM：</li>
+<ul>
+<li>用 <strong>PC → local value history → hash → prediction table</strong>。</li>
+<li>预测依赖该指令前几次产生的值。</li>
+</ul>
+<li>VTAGE：</li>
+<ul>
+<li>用 <strong>PC + global branch history/path history → hash → tagged prediction table</strong>。</li>
+<li>预测依赖程序最近走过的控制流路径。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这一下直接绕开了 FCM 的硬件临界环。</li>
+<ul>
+<li>VTAGE不需要等上一实例的真实值。</li>
+<li>也不需要维护每条指令最近 n 个 speculative value。</li>
+<li>即使同一条指令连续两拍被 Fetch，VTAGE也可以照常查表。</li>
+<li>因为它要的上下文来自 branch predictor 已经维护的<strong>global history</strong>，不是来自该指令刚刚产生的值。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>VTAGE到底怎么工作</strong></p>
+<figure><img src="../images/6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" alt="" loading="lazy"> <em>Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.</em></figure>
+<ul>
+<li>VTAGE由一个 base predictor 和多个 tagged components 组成。</li>
+<ul>
+<li><strong>base predictor</strong>：</li>
+<ul>
+<li>类似一个简单的<strong>LVP</strong>。</li>
+<li>只用 PC 索引。</li>
+<li>没有 tag。</li>
+</ul>
+<li><strong>tagged components</strong>：</li>
+<ul>
+<li>每个表使用不同长度的<strong>global branch history</strong>。</li>
+<li>历史长度按几何级数增长，例如 2、4、8、16、32、64。</li>
+<li>每个 entry 存：</li>
+<ul>
+<li><strong>val</strong>：预测值；</li>
+<li><strong>tag</strong>：用于确认是不是同一个上下文；</li>
+<li><strong>c</strong>：confidence counter；</li>
+<li><strong>u</strong>：usefulness bit，用于替换策略。</li>
+</ul>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>组件</th>
+<th>使用的信息</th>
+<th>直觉作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Base predictor</td>
+<td>只看 PC</td>
+<td>“这条指令通常产生什么值”</td>
+</tr>
+<tr>
+<td>短历史表</td>
+<td>PC + 最近少量分支历史</td>
+<td>捕捉短期控制流相关性</td>
+</tr>
+<tr>
+<td>长历史表</td>
+<td>PC + 更长 global branch history</td>
+<td>捕捉复杂路径相关性</td>
+</tr>
+<tr>
+<td>Provider component</td>
+<td>匹配成功且历史最长的表</td>
+<td>用最具体的上下文给预测</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>预测时，所有 components 并行查。</li>
+<ul>
+<li>每个表都用 <strong>PC + 不同长度的 global branch history/path history</strong> 做 hash。</li>
+<li>查出来后比对 tag。</li>
+<li>如果多个表命中，选择<strong>使用最长历史的命中表</strong>作为 provider。</li>
+<li>因为最长历史代表最具体的上下文。</li>
+</ul>
+</ul>
+<ul>
+<li>这个“最长匹配”很像路由表里的<strong>Longest Prefix Match</strong>。</li>
+<ul>
+<li>短历史表像是粗粒度规则：</li>
+<ul>
+<li>“一般情况下，这条指令结果是 A。”</li>
+</ul>
+<li>长历史表像是精细规则：</li>
+<ul>
+<li>“如果前面走过这串分支路径，那结果其实是 B。”</li>
+</ul>
+<li>当精细规则存在时，优先相信精细规则。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>为什么“最长历史匹配”是关键</strong></p>
+<ul>
+<li>程序行为通常有层次性。</li>
+<ul>
+<li>有些值只和当前 PC 有关。</li>
+<li>有些值和最近几个分支有关。</li>
+<li>有些值要看更长路径才能区分。</li>
+</ul>
+</ul>
+<ul>
+<li>如果只用短历史：</li>
+<ul>
+<li>容易把不同路径混在一起。</li>
+<li>覆盖率可能高，但准确率不稳。</li>
+</ul>
+</ul>
+<ul>
+<li>如果只用长历史：</li>
+<ul>
+<li>学得慢。</li>
+<li>表项更稀疏。</li>
+<li>容易浪费空间。</li>
+</ul>
+</ul>
+<ul>
+<li>VTAGE的聪明点是：</li>
+<ul>
+<li><strong>短历史负责兜底</strong>；</li>
+<li><strong>长历史负责在必要时细分上下文</strong>；</li>
+<li><strong>谁匹配得更具体，就让谁说话</strong>。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>VTAGE解决的不是单纯准确率，而是“可实现的上下文预测”</strong></p>
+<ul>
+<li>如果只看论文表面，可能会觉得 VTAGE只是“用了 global branch history 的值预测器”。</li>
+<li>真正的创新更具体：</li>
+<ul>
+<li>它把 context-based value prediction 从<strong>local value context</strong>换成了<strong>global control-flow context</strong>。</li>
+<li>这样既保留了 context predictor 的区分能力，又避免了 FCM 的 back-to-back critical path。</li>
+<li>它让预测器查表延迟可以跨多个 pipeline stage，从 Fetch 到 Dispatch 慢慢完成。</li>
+<li>这意味着可以用更大表、更复杂 hash，而不用卡在单周期临界路径里。</li>
+</ul>
+</ul>
+<ul>
+<li>这就是 VTAGE 相对 FCM 的本质优势：</li>
+<ul>
+<li>不是“我有更神奇的模式识别能力”；</li>
+<li>而是“我选择了一种硬件上更顺滑的上下文”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>一句话抓住VTAGE</strong></p>
+<ul>
+<li><strong>VTAGE不是根据“这条指令上几次算出了什么”来猜下一次值，而是根据“程序刚才走过哪条控制流路径”来猜这个值。</strong></li>
+<li>它的关键转向是：</li>
+<ul>
+<li>从<strong>数据历史驱动</strong>转为<strong>控制流历史驱动</strong>；</li>
+<li>从<strong>局部连续依赖</strong>转为<strong>全局路径上下文</strong>；</li>
+<li>从<strong>难以支持 tight loop 的两级 FCM</strong>转为<strong>可流水、多表、最长历史匹配的 TAGE-style predictor</strong>。</li>
+</ul>
+</ul>
+<h3 id="4-vtage表项组织与更新替换策略">4. VTAGE表项组织与更新替换策略<a class="anchor" href="#4-vtage表项组织与更新替换策略">#</a></h3>
+<p><strong>1. 痛点直击：为什么VTAGE表项要这样组织？</strong></p>
+<figure><img src="../images/6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" alt="" loading="lazy"> <em>Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.</em></figure>
+<ul>
+<li><strong>VTAGE要解决的核心痛点</strong>不是“怎么存一个预测值”，而是：</li>
+<ul>
+<li>同一条指令在不同控制流路径下，可能产生不同值。</li>
+<li>如果只按<strong>PC</strong>索引，就会把这些不同上下文混在一起。</li>
+<li>结果是预测器以为自己在学“同一个规律”，实际学到的是一堆互相污染的样本。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>LVP的问题</strong>：</li>
+<ul>
+<li>LVP只看<strong>PC</strong>。</li>
+<li>它像是在说：“这条指令上次产生了什么值，这次大概率还是什么值。”</li>
+<li>对于稳定值很有效，但遇到路径相关值就很痛苦：</li>
+<ul>
+<li><code>if 路径A</code>下结果是10；</li>
+<li><code>if 路径B</code>下结果是20；</li>
+<li>同一个PC反复在10和20之间跳。</li>
+</ul>
+<li>LVP会不断被覆盖，置信度也很难稳定起来。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>FCM的问题</strong>：</li>
+<ul>
+<li>FCM用局部值历史作为上下文。</li>
+<li>问题是它依赖“前几次这个指令产生了什么值”。</li>
+<li>在紧密循环里，后一次预测需要前一次预测值参与索引，形成很难做快的<strong>critical path</strong>。</li>
+<li>表面上上下文更丰富，硬件上却很别扭：</li>
+<ul>
+<li>要追踪同一指令的多个未提交实例；</li>
+<li>要把预测值及时反馈给下一次索引；</li>
+<li>tight loop里很容易卡住。</li>
+</ul>
+</ul>
+</ul>
+<figure><img src="../images/ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" alt="" loading="lazy"> <em>Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.</em></figure>
+<ul>
+<li><strong>VTAGE的关键痛点判断</strong>：</li>
+<ul>
+<li>很多值不是由“前几个值”决定的，而是由“程序刚刚走过哪条路”决定的。</li>
+<li>既然现代处理器本来就维护<strong>global branch history</strong>和<strong>path history</strong>，那就不要再为value predictor单独造一套难用的局部值历史系统。</li>
+<li>用控制流历史当上下文，既能区分路径，又不会引入FCM那种值反馈critical path。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>2. 通俗比方：VTAGE表项像“带门牌号的经验卡片”</strong></p>
+<ul>
+<li>可以把VTAGE想成一个经验丰富的助教在批改作业。</li>
+<ul>
+<li><strong>PC</strong>是学生名字。</li>
+<li><strong>global branch history</strong>是这名学生最近做题时走过的思路路线。</li>
+<li><strong>val</strong>是助教预测这题答案会是多少。</li>
+<li><strong>tag</strong>是为了确认“这张经验卡片真的是这个场景下的”，不是误拿了别人的卡片。</li>
+<li><strong>c</strong>是助教对这张卡片的信心。</li>
+<li><strong>u</strong>是这张卡片最近有没有帮上忙。</li>
+</ul>
+</ul>
+<ul>
+<li>为什么要有多个组件表？</li>
+<ul>
+<li>VTAGE不是只问一个助教。</li>
+<li>它问一排助教：</li>
+<ul>
+<li>有的只看最近2步思路；</li>
+<li>有的看最近4步；</li>
+<li>有的看最近8步；</li>
+<li>一直到更长的历史。</li>
+</ul>
+<li>谁能匹配，并且看得最远，谁更可能抓住真正原因。</li>
+<li>这就是<strong>provider component</strong>：匹配成功且使用最长历史的那个表。</li>
+</ul>
+</ul>
+<ul>
+<li>直觉上，这像医生诊断：</li>
+<ul>
+<li>短历史表像普通问诊：“你最近有没有发烧？”</li>
+<li>长历史表像详细病史：“你过去一周吃了什么、去过哪里、有什么接触史？”</li>
+<li>如果简单问诊已经能判断，就用简单规则。</li>
+<li>如果简单规则误判，说明这个病人的情况需要更细粒度的上下文，于是记录到更长历史的档案里。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>3. 关键一招：把“错了就覆盖”改成“错了就升级上下文”</strong></p>
+<ul>
+<li>VTAGE最巧妙的地方在更新替换策略：</li>
+<ul>
+<li>传统LVP式思路是：</li>
+<ul>
+<li>当前PC预测错了；</li>
+<li>那就把这个PC对应的值改掉。</li>
+</ul>
+<li>VTAGE不是这么粗暴。</li>
+<li>它的判断是：</li>
+<ul>
+<li>如果短上下文预测错了，可能不是值随机；</li>
+<li>而是当前表看的历史太短，没有区分出真正场景。</li>
+</ul>
+<li>所以它做的是：</li>
+<ul>
+<li><strong>不是简单覆盖当前表项</strong>；</li>
+<li>而是在<strong>比当前provider更长历史的组件</strong>里尝试分配新表项。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这一步的逻辑转换非常关键：</li>
+<ul>
+<li><strong>误预测不是失败样本，而是提示：需要更长上下文。</strong></li>
+<li>这就像决策树分裂节点：</li>
+<ul>
+<li>当前节点分类错了；</li>
+<li>不一定说明数据没规律；</li>
+<li>可能说明当前特征不够，需要继续分裂，用更多条件区分样本。</li>
+</ul>
+<li>VTAGE的“更长历史组件分配新表项”，本质上就是一种硬件版的“继续细分上下文”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>VTAGE表项里每个字段的直觉作用</strong></p>
+<table>
+<thead><tr>
+<th>字段</th>
+<th>直觉含义</th>
+<th>为什么需要</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>val</strong></td>
+<td>预测出来的64-bit值</td>
+<td>真正喂给流水线使用的预测结果</td>
+</tr>
+<tr>
+<td><strong>c</strong></td>
+<td>置信度计数器</td>
+<td>决定这次预测敢不敢用；只有饱和才使用</td>
+</tr>
+<tr>
+<td><strong>tag</strong></td>
+<td>部分标签</td>
+<td>防止不同PC/历史组合映射到同一位置后误用</td>
+</tr>
+<tr>
+<td><strong>u</strong></td>
+<td>useful bit</td>
+<td>告诉替换策略：这张卡片最近有没有价值</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>val</strong>回答：“我预测的答案是什么？”</li>
+<li><strong>c</strong>回答：“我有多确定？”</li>
+<li><strong>tag</strong>回答：“这张表项是不是属于当前这个上下文？”</li>
+<li><strong>u</strong>回答：“这张表项值不值得保留？”</li>
+</ul>
+<hr>
+<p><strong>预测时：谁最具体，听谁的</strong></p>
+<ul>
+<li>VTAGE预测流程的直觉很简单：</li>
+<ul>
+<li>所有组件并行查表。</li>
+<li>每个组件用不同长度的<strong>global branch history</strong>和<strong>PC</strong>做索引。</li>
+<li>如果某个组件的<strong>tag</strong>匹配，说明它认为“我见过这个场景”。</li>
+<li>在所有匹配组件中，选择历史最长的那个作为<strong>provider</strong>。</li>
+<li>只有provider的<strong>c</strong>饱和，预测才真正有效。</li>
+</ul>
+</ul>
+<ul>
+<li>为什么选最长历史？</li>
+<ul>
+<li>长历史意味着上下文更具体。</li>
+<li>短历史像“今天下雨，所以堵车”。</li>
+<li>长历史像“今天下雨、周五、晚高峰、这条路施工，所以堵车”。</li>
+<li>后者更具体，也更可能解释当前值。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>更新时：正确就巩固，错误就找更细的上下文</strong></p>
+<ul>
+<li>如果预测正确：</li>
+<ul>
+<li>增强对应表项的<strong>c</strong>。</li>
+<li>说明这张经验卡片靠谱。</li>
+<li><strong>u</strong>也可能被强化，表示它有保留价值。</li>
+</ul>
+</ul>
+<ul>
+<li>如果预测错误：</li>
+<ul>
+<li>先处理当前provider：</li>
+<ul>
+<li>降低或重置<strong>c</strong>；</li>
+<li>如果<strong>c</strong>已经很低，可以替换它的<strong>val</strong>。</li>
+</ul>
+<li>更关键的是：</li>
+<ul>
+<li>尝试在比provider使用<strong>更长历史</strong>的组件中分配新表项。</li>
+<li>新表项记录当前真实值作为新的<strong>val</strong>。</li>
+<li>新表项的<strong>tag</strong>对应这个更具体的上下文。</li>
+</ul>
+<li>如果更长历史组件里找不到没用的表项：</li>
+<ul>
+<li>不会强行挤掉所有东西；</li>
+<li>而是优先寻找<strong>u=0</strong>的表项；</li>
+<li>如果都很有用，就重置一些<strong>u</strong>，等待后续机会。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这套策略非常像缓存替换，但更聪明：</li>
+<ul>
+<li>普通cache替换关心“最近有没有用”。</li>
+<li>VTAGE还关心“这个错误是不是说明需要更具体的历史”。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>为什么误预测时要往更长历史表分配？</strong></p>
+<ul>
+<li>因为当前provider已经是“在当前可匹配范围里最具体”的规则。</li>
+<li>它错了，说明：</li>
+<ul>
+<li>这个上下文粒度还不够；</li>
+<li>需要更多控制流历史来区分不同情况。</li>
+</ul>
+<li>所以VTAGE把新知识放到更长历史组件里：</li>
+<ul>
+<li>以后如果再次遇到同样更细的路径，新表项就能命中；</li>
+<li>它会压过短历史provider；</li>
+<li>从而避免短历史规则继续犯同样的错。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>一针见血地说</strong></p>
+<ul>
+<li><strong>VTAGE表项组织</strong>是在回答四个问题：</li>
+<ul>
+<li><strong>val</strong>：预测什么？</li>
+<li><strong>c</strong>：敢不敢用？</li>
+<li><strong>tag</strong>：是不是这个场景？</li>
+<li><strong>u</strong>：值不值得留下？</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE更新替换策略</strong>的本质是：</li>
+<ul>
+<li>正确时，强化当前经验；</li>
+<li>错误时，不急着否定全部规律；</li>
+<li>而是判断“可能是上下文不够细”，于是把新规律放到更长历史的组件中。</li>
+</ul>
+</ul>
+<ul>
+<li>这就是VTAGE比普通value predictor更优雅的地方：</li>
+<ul>
+<li>它不是单纯记值；</li>
+<li>它是在逐步学习“什么控制流路径下会产生什么值”。</li>
+<li>更像一个分层记忆系统：</li>
+<ul>
+<li>常见、简单的规律放短历史；</li>
+<li>复杂、路径敏感的规律放长历史；</li>
+<li>没用的规律通过<strong>u</strong>自然淘汰；</li>
+<li>不够可信的规律通过<strong>c</strong>禁止进入流水线。</li>
+</ul>
+</ul>
+</ul>
+<h3 id="5-面向紧密循环的连续实例预测能力">5. 面向紧密循环的连续实例预测能力<a class="anchor" href="#5-面向紧密循环的连续实例预测能力">#</a></h3>
+<p><strong>痛点直击：紧密循环里，传统 Value Predictor 会被“自己卡住”</strong></p>
+<ul>
+<li><strong>真正难受的场景</strong>不是普通预测，而是<strong>tight loop</strong>：</li>
+<ul>
+<li>同一条静态指令在循环里反复出现。</li>
+<li>甚至可能出现<strong>背靠背实例</strong>：上一轮刚 Fetch，下一轮同一条指令马上又 Fetch。</li>
+<li>这时 predictor 必须连续给出多个预测，不能等前一个实例真正执行完。</li>
+</ul>
+</ul>
+<ul>
+<li>对很多传统 Value Predictor 来说，问题在于：</li>
+<ul>
+<li>它们预测当前实例时，需要知道<strong>同一指令前一次或前几次产生的值</strong>。</li>
+<li>但在 tight loop 里，前一次实例很可能：</li>
+<ul>
+<li>还没执行；</li>
+<li>还没写回；</li>
+<li>甚至只是刚刚被预测出来。</li>
+</ul>
+<li>于是 predictor 不得不把<strong>上一次预测值</strong>立刻旁路给下一次预测使用。</li>
+</ul>
+</ul>
+<ul>
+<li>这就形成了一个很讨厌的<strong>预测器内部关键路径</strong>：</li>
+<ul>
+<li><strong>Stride Predictor</strong>需要：</li>
+<ul>
+<li>读出 last value 和 stride；</li>
+<li>做一次加法；</li>
+<li>把结果立刻反馈给下一次预测。</li>
+</ul>
+<li><strong>FCM</strong>更麻烦：</li>
+<ul>
+<li>要维护同一指令的局部 value history；</li>
+<li>用历史值做 hash；</li>
+<li>再访问第二级表 VPT；</li>
+<li>下一次实例又依赖这次预测值更新后的 history。</li>
+</ul>
+<li>如果循环太紧，这些操作必须在极短时间内完成，几乎等价于要求 predictor 在一个周期里完成复杂串行工作。</li>
+</ul>
+</ul>
+<ul>
+<li>论文里 Figure 1 讲的就是这个痛点：</li>
+<ul>
+<li><strong>LVP</strong>只看 PC，所以两次预测互不依赖。</li>
+<li><strong>Stride</strong>有一个短反馈环：上一预测值要立刻进 adder。</li>
+<li><strong>FCM</strong>有一个更长反馈环：预测值要参与 history/hash，再访问 VPT。</li>
+<li><strong>VTAGE</strong>的优势，就是把自己放到了类似 LVP 的位置：预测不依赖刚产生的数据值。</li>
+</ul>
+</ul>
+<figure><img src="../images/ef22b28fa9cdc8c13f3f302c210e76a9536147ba9e2b1d7ad229ef316eee755e.jpg" alt="" loading="lazy"> <em>Figure 1: Prediction flow and critical paths for different value predictors when two occurrences of an instruction are fetched in two consecutive cycles.</em></figure>
+<table>
+<thead><tr>
+<th>Predictor</th>
+<th>当前预测依赖什么</th>
+<th>tight loop 中的问题</th>
+<th>连续实例预测能力</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>LVP</strong></td>
+<td><strong>PC</strong></td>
+<td>基本没有反馈依赖</td>
+<td>强</td>
+</tr>
+<tr>
+<td><strong>Stride</strong></td>
+<td><strong>last value + stride</strong></td>
+<td>需要快速旁路上一预测值</td>
+<td>中等</td>
+</tr>
+<tr>
+<td><strong>FCM</strong></td>
+<td><strong>同一指令的局部 value history</strong></td>
+<td>history/hash/VPT 形成长关键路径</td>
+<td>弱</td>
+</tr>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td><strong>global branch history + path history + PC</strong></td>
+<td>不等同一指令前值返回</td>
+<td>强</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>通俗比方：不要等上一道菜出锅，改看“菜单顺序”来猜下一道菜</strong></p>
+<ul>
+<li>可以把 tight loop 想成一家节奏极快的餐厅：</li>
+<ul>
+<li>同一个厨师每隔几秒就要做同一道菜。</li>
+<li>经理要提前猜这道菜的成品重量，也就是 value prediction。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Stride / FCM</strong>像是在说：</li>
+<ul>
+<li>“我要看上一盘菜实际做出来多重，再猜下一盘。”</li>
+<li>问题是：</li>
+<ul>
+<li>上一盘还没出锅；</li>
+<li>下一盘已经要开始了；</li>
+<li>经理只能拿“刚刚猜的重量”继续猜下一盘。</li>
+</ul>
+<li>这就很危险，也很赶时间：</li>
+<ul>
+<li>猜测依赖猜测；</li>
+<li>一旦节奏快，就要求信息瞬间回传。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong>换了一个思路：</li>
+<ul>
+<li>它不等上一盘菜出锅。</li>
+<li>它观察的是：</li>
+<ul>
+<li>今天菜单的走向；</li>
+<li>客人的点餐路径；</li>
+<li>前面发生过哪些分支选择。</li>
+</ul>
+<li>换句话说，它用<strong>控制流历史</strong>来判断当前这道菜大概是什么结果。</li>
+</ul>
+</ul>
+<ul>
+<li>这个比方的关键顿悟在于：</li>
+<ul>
+<li>传统方法是在追踪<strong>这条指令自己过去吐出了什么值</strong>。</li>
+<li>VTAGE是在追踪<strong>程序是沿着哪条路走到这里的</strong>。</li>
+<li>如果 value 主要由控制路径决定，那看路径比等值更及时。</li>
+</ul>
+</ul>
+<ul>
+<li>这很像 branch predictor 里的思路：</li>
+<ul>
+<li>不一定要知道某个变量具体是多少；</li>
+<li>只要知道程序最近经过了哪些 if/else、哪些 loop path；</li>
+<li>就足以判断接下来很可能出现什么行为。</li>
+<li>VTAGE把这种思路从<strong>branch target prediction</strong>搬到了<strong>data value prediction</strong>。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招：把“数据依赖链预测”扭转成“控制流上下文索引”</strong></p>
+<ul>
+<li>作者最巧妙的地方，不是把 FCM 做得更快，也不是给 Stride 加更复杂的 bypass。</li>
+<li>作者直接换掉了预测所依赖的信息源：</li>
+<ul>
+<li>原来：</li>
+<ul>
+<li>当前 value prediction 依赖<strong>同一指令之前产生的 value</strong>。</li>
+</ul>
+<li>现在：</li>
+<ul>
+<li>当前 value prediction 依赖<strong>global branch history、path history 和 PC</strong>。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这个替换非常关键：</li>
+<ul>
+<li><strong>同一指令之前产生的 value</strong>在 tight loop 中可能还没准备好。</li>
+<li><strong>global branch history</strong>在 Fetch 阶段本来就由 branch predictor 维护着。</li>
+<li>因此 VTAGE 可以在前端比较早地开始查表，不必等后端执行结果。</li>
+</ul>
+</ul>
+<ul>
+<li>具体流程可以直觉化成这样：</li>
+<ul>
+<li>Fetch 到一条指令。</li>
+<li>用这条指令的 <strong>PC</strong>，再混合不同长度的 <strong>global branch history</strong>。</li>
+<li>并行访问多个 VTAGE tables。</li>
+<li>找到最长历史匹配的 provider entry。</li>
+<li>如果 confidence counter 饱和，就给出预测值。</li>
+<li>这个过程不需要上一实例的 value 已经算出来。</li>
+</ul>
+</ul>
+<ul>
+<li>这让 VTAGE 获得一个很实际的工程优势：</li>
+<ul>
+<li>表访问可以跨越多个周期。</li>
+<li>只要预测在 Dispatch 前回来即可。</li>
+<li>不要求在两个连续 Fetch 周期之间完成“预测值反馈到下一次预测”的闭环。</li>
+</ul>
+</ul>
+<ul>
+<li>这就是论文所谓的 <strong>seamlessly predict back-to-back occurrences</strong>：</li>
+<ul>
+<li>不是说 VTAGE 查表一定更快。</li>
+<li>而是说它的查表不在同一指令连续实例之间形成串行依赖。</li>
+<li>所以它可以慢一点、表大一点、历史长一点，仍然适合 tight loop。</li>
+</ul>
+</ul>
+<figure><img src="../images/6e14f7718fea6873c6afc4f072082990df739ab3610605f1dd28aadcce26fd92.jpg" alt="" loading="lazy"> <em>Figure 2: (1+N)-component VTAGE predictor. Val is the prediction, c is the hysteresis counter acting as confidence counter, u is the useful bit used by the replacement policy.</em></figure>
+<ul>
+<li>用一句话概括：</li>
+<ul>
+<li><strong>VTAGE没有试图把“上一值到下一值”的反馈环做短，而是干脆绕开这个反馈环。</strong></li>
+<li>它把 value prediction 从“追着数据跑”变成了“沿着控制流提前猜”。</li>
+<li>这就是它面对紧密循环时比 FCM 更实用的根本原因。</li>
+</ul>
+</ul>
+<h3 id="6-vtage与2d-stride的混合预测器">6. VTAGE与2D-Stride的混合预测器<a class="anchor" href="#6-vtage与2d-stride的混合预测器">#</a></h3>
+<p><strong>痛点直击：单个预测器各有“盲区”，硬上反而不划算</strong></p>
+<ul>
+<li><strong>Value Prediction</strong>真正难受的地方，不是“预测不够多”，而是：</li>
+<ul>
+<li><strong>错一次太贵</strong>：这篇论文主张用<strong>commit-time validation</strong>，也就是到提交阶段才验证预测值；一旦错了，代价可能接近一次很重的 pipeline squash。</li>
+<li><strong>所以不能贪覆盖率</strong>：宁愿少预测，也不能乱预测。</li>
+<li><strong>单一预测器总会偏科</strong>：</li>
+<ul>
+<li><strong>2D-Stride</strong>擅长抓“数值自己按规律走”的模式。</li>
+<ul>
+<li>典型例子：地址、计数器、循环变量、线性递增/递减值。</li>
+<li>它的直觉是：这个值上次加了多少？这次大概率还这么加。</li>
+</ul>
+<li><strong>VTAGE</strong>擅长抓“值由控制流上下文决定”的模式。</li>
+<ul>
+<li>典型例子：同一条指令，在不同 branch path 下产生不同值。</li>
+<li>它的直觉是：走到这里之前经过了哪些分支？这个路径通常对应哪个值。</li>
+</ul>
+</ul>
+<li>但它们各自单独用时都会遇到尴尬：</li>
+<ul>
+<li><strong>2D-Stride</strong>看不懂“路径决定值”的情况。</li>
+<li><strong>VTAGE</strong>能学到一些短模式，但对纯 stride 模式不够经济，可能一个模式要占多个表项。</li>
+<li><strong>o4-FCM</strong>这类 local value history predictor 虽然也是 context-based，但预测 tight loop 时有复杂的 back-to-back 依赖链，硬件实现很难受。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>这篇论文的核心判断是：</li>
+<ul>
+<li><strong>VTAGE和2D-Stride不是谁替代谁，而是正好互补。</strong></li>
+<li>一个看<strong>控制流历史</strong>，一个看<strong>数值演化规律</strong>。</li>
+<li>混合后，目标不是“让预测器更激进”，而是让它在<strong>高置信、低风险</strong>的前提下覆盖更多可预测指令。</li>
+</ul>
+</ul>
+<figure><img src="../images/b7ab2a6ec437b8faef8eef77dfbeec84609693b1579de01118e521d239734ae0.jpg" alt="" loading="lazy"></figure>
+<hr>
+<p><strong>通俗比方：一个看“路线”，一个看“速度表”</strong></p>
+<ul>
+<li>可以把一条指令的输出值想象成你预测一个人下一站会去哪。</li>
+</ul>
+<ul>
+<li><strong>VTAGE像是在看他的路线历史</strong>：</li>
+<ul>
+<li>他刚才经过了哪些路口？</li>
+<li>每个路口是左转还是右转？</li>
+<li>如果过去很多次“先左转、再右转、再直行”之后，他都会去同一个地方，那 VTAGE 就能猜中。</li>
+<li>所以 VTAGE 的强项是：<strong>路径模式决定结果</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>2D-Stride像是在看他的运动节奏</strong>：</li>
+<ul>
+<li>上次位置是 100，这次是 104，再下次大概是 108。</li>
+<li>它不关心你怎么来的，只关心数值是不是按固定步伐变化。</li>
+<li>所以 2D-Stride 的强项是：<strong>数值序列本身有稳定步长</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>混合预测器就像请了两个判断员：</li>
+<ul>
+<li>一个说：“从他今天走过的路看，他应该去 A。”</li>
+<li>另一个说：“从他的速度和步伐看，他也应该到 A。”</li>
+<li>那就放心预测。</li>
+<li>如果只有一个人很有把握，另一个没意见，也可以采纳。</li>
+<li>如果两个人都很自信但一个说 A、一个说 B，那就别赌，<strong>直接放弃预测</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li>这个策略的妙处在于：</li>
+<ul>
+<li>它不是简单投票。</li>
+<li>它是一个<strong>保守型仲裁器</strong>。</li>
+<li>它宁愿少做一次正确预测，也要避免一次昂贵的错误预测。</li>
+<li>这非常契合论文里的大前提：<strong>commit-time recovery 很贵，所以准确率比覆盖率更重要</strong>。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>关键一招：不是强行融合，而是“置信门控 + 冲突刹车”</strong></p>
+<ul>
+<li>作者没有设计一个复杂的 meta-predictor，也没有训练一个高级选择器来判断“这次该信 VTAGE 还是该信 2D-Stride”。</li>
+</ul>
+<ul>
+<li>作者做的是一个非常朴素但有效的逻辑转换：</li>
+<ul>
+<li><strong>把“选择最强预测器”改成“只在安全时预测”。</strong></li>
+</ul>
+</ul>
+<ul>
+<li>混合规则很简单：</li>
+</ul>
+<table>
+<thead><tr>
+<th>情况</th>
+<th>VTAGE</th>
+<th>2D-Stride</th>
+<th>动作</th>
+<th>直觉</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>只有 VTAGE 高置信</td>
+<td>有预测</td>
+<td>无高置信预测</td>
+<td>采用 VTAGE</td>
+<td>控制流上下文足够可靠</td>
+</tr>
+<tr>
+<td>只有 2D-Stride 高置信</td>
+<td>无高置信预测</td>
+<td>有预测</td>
+<td>采用 2D-Stride</td>
+<td>步长模式足够可靠</td>
+</tr>
+<tr>
+<td>双方高置信且结果一致</td>
+<td>预测值 A</td>
+<td>预测值 A</td>
+<td>执行预测</td>
+<td>两个独立证据互相印证</td>
+</tr>
+<tr>
+<td>双方高置信但结果冲突</td>
+<td>预测值 A</td>
+<td>预测值 B</td>
+<td>放弃预测</td>
+<td>有分歧就不要冒险</td>
+</tr>
+<tr>
+<td>双方都不高置信</td>
+<td>无</td>
+<td>无</td>
+<td>不预测</td>
+<td>没证据就不猜</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>这里最关键的不是“组合”本身，而是<strong>冲突时放弃预测</strong>：</li>
+<ul>
+<li>很多 hybrid predictor 的直觉是“谁更强就听谁的”。</li>
+<li>这篇论文的直觉是“只要两个强信号打架，就说明这个点风险高”。</li>
+<li>在 value prediction 里，这比 branch prediction 更重要，因为：</li>
+<ul>
+<li>branch prediction 错了是常规代价；</li>
+<li>value prediction 错了可能污染依赖链，导致大量后续指令白跑；</li>
+<li>commit-time validation 下，发现错误更晚，代价更高。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li>还有一个很巧的细节：</li>
+<ul>
+<li>hybrid 中，一个组件的预测值也可以作为另一个组件的 speculative last value。</li>
+<li>例如：</li>
+<ul>
+<li>如果 VTAGE 对某条指令给出了高置信预测；</li>
+<li>那么 2D-Stride 后续可以把这个预测值当作“上一轮值”来继续生成 stride prediction。</li>
+</ul>
+<li>这相当于让两个预测器不只是并排工作，而是能在 speculative 状态下互相喂信息。</li>
+<li>但最终训练仍然用 committed value，避免错误长期污染 predictor。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>为什么 VTAGE + 2D-Stride 特别合拍</strong></p>
+<ul>
+<li>二者看的“证据源”几乎正交：</li>
+</ul>
+<table>
+<thead><tr>
+<th>预测器</th>
+<th>主要依据</th>
+<th>擅长模式</th>
+<th>弱点</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>VTAGE</strong></td>
+<td><strong>global branch history + path history</strong></td>
+<td>控制流相关值、路径相关值</td>
+<td>对纯 stride 模式不够紧凑</td>
+</tr>
+<tr>
+<td><strong>2D-Stride</strong></td>
+<td><strong>previous values + stride pattern</strong></td>
+<td>线性递增/递减、地址流、循环计数</td>
+<td>不理解复杂控制流上下文</td>
+</tr>
+<tr>
+<td><strong>VTAGE + 2D-Stride</strong></td>
+<td>两类证据互补</td>
+<td>同时覆盖路径模式和步长模式</td>
+<td>需要保守仲裁避免冲突</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>这也是为什么论文里说：</li>
+<ul>
+<li><strong>computational predictor</strong>和<strong>context-based predictor</strong>确实预测了不同类型的指令。</li>
+<li>hybrid 后 coverage 通常会上升。</li>
+<li>但由于采用了保守策略，accuracy 仍然保持很高。</li>
+</ul>
+</ul>
+<figure><img src="../images/5b4f7efc0433381dbcc42d12da1b1710ca92bb76aec52119d59c67a5e02c1bb1.jpg" alt="" loading="lazy"></figure>
+<hr>
+<p><strong>一针见血地说</strong></p>
+<ul>
+<li><strong>2D-Stride</strong>问的是：</li>
+<ul>
+<li>“这个值自己是不是在按固定节奏变化？”</li>
+</ul>
+</ul>
+<ul>
+<li><strong>VTAGE</strong>问的是：</li>
+<ul>
+<li>“走到这个点之前的控制流路径，是不是暗示了这个值？”</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Hybrid</strong>问的是：</li>
+<ul>
+<li>“这两个证据里，至少有没有一个很可靠？如果两个都可靠，它们是否一致？”</li>
+</ul>
+</ul>
+<ul>
+<li>这就是这套设计的核心：</li>
+<ul>
+<li><strong>不是为了预测更多而混合。</strong></li>
+<li><strong>是为了在不牺牲超高准确率的情况下，吃到两类完全不同的 value locality。</strong></li>
+</ul>
+</ul>
+<ul>
+<li>用一句话概括：</li>
+<ul>
+<li><strong>作者没有让 VTAGE 和 2D-Stride 互相竞争，而是让它们互相背书；一旦互相打架，就马上闭嘴。</strong></li>
+</ul>
+</ul></article>
+    </main>
+    <aside class="toc">
+      <div class="toc-title">目录</div>
+      <a class="toc-level-1" href="#practical-data-value-speculation-for-future-high-end-processors-通俗讲解">Practical Data Value Speculation for Future High-end Processors 通俗讲解</a>
+<a class="toc-level-3" href="#0-整体创新点通俗解读">0. 整体创新点通俗解读</a>
+<a class="toc-level-3" href="#1-forward-probabilistic-countersfpc置信度机制">1. Forward Probabilistic Counters（FPC）置信度机制</a>
+<a class="toc-level-3" href="#2-提交阶段验证与流水线清空恢复机制">2. 提交阶段验证与流水线清空恢复机制</a>
+<a class="toc-level-3" href="#3-vtage全局控制流上下文值预测器">3. VTAGE全局控制流上下文值预测器</a>
+<a class="toc-level-3" href="#4-vtage表项组织与更新替换策略">4. VTAGE表项组织与更新替换策略</a>
+<a class="toc-level-3" href="#5-面向紧密循环的连续实例预测能力">5. 面向紧密循环的连续实例预测能力</a>
+<a class="toc-level-3" href="#6-vtage与2d-stride的混合预测器">6. VTAGE与2D-Stride的混合预测器</a>
+    </aside>
+  </div>
+</body>
+</html>
