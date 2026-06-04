@@ -160,7 +160,12 @@ def main():
         new_img_paths, valid_filenames = parser.setup_environment(OUTPUT_DIR, ordered_imgs)
 
         # 构建完整的 LLM 上下文
-        full_context = core.build_full_context(full_text, new_img_paths)
+        # 避免每个章节请求都重复发送全部图片；逐图分析仍会单独使用图片。
+        include_full_context_images = os.getenv(
+            "INCLUDE_FULL_CONTEXT_IMAGES", "0"
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        full_context_image_paths = new_img_paths if include_full_context_images else []
+        full_context = core.build_full_context(full_text, full_context_image_paths)
 
         # 执行分析流程
         results = {}
