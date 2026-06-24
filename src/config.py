@@ -89,8 +89,25 @@ def _build_api_url(base_url, wire_api):
 # ============================================================================
 
 MODEL_PROVIDER = _env("model_provider", "MODEL_PROVIDER", default="OpenAI")
-MODEL_NAME_TEXT = _env("model", "MODEL", "OPENAI_MODEL", default="gpt-5.5")
-MODEL_NAME_IMAGE = _env("model_image", "MODEL_NAME_IMAGE", default=MODEL_NAME_TEXT)
+
+# 图片（多模态）模型必填：纯文本模型无法处理图片，禁止回退到 text 模型。
+MODEL_NAME_IMAGE = _env("model_image", "MODEL_NAME_IMAGE")
+if not MODEL_NAME_IMAGE:
+    raise ValueError(
+        "model_image 未设置：逐图分析需要视觉能力，请在 .env 配置 model_image "
+        "为一个多模态模型（如 glm-4v）。"
+    )
+
+# 文本模型可回退到图片模型（多模态也能做纯文本），但单价通常更高，需提示。
+_model_text_explicit = bool(_env("model", "MODEL", "OPENAI_MODEL"))
+MODEL_NAME_TEXT = _env("model", "MODEL", "OPENAI_MODEL", default=MODEL_NAME_IMAGE)
+if not _model_text_explicit:
+    print(
+        f"[提示] 未配置 model，文本分析将复用图片模型 {MODEL_NAME_IMAGE!r}"
+        "（多模态，单价通常更高）。如需降低成本，请在 .env 设置 model 为纯文本模型"
+        "（如 deepseek-chat / glm-4-flash）。",
+        flush=True,
+    )
 API_BASE_URL = _env(
     "base_url",
     "BASE_URL",
@@ -105,6 +122,24 @@ API_URL = _env("api_url", "API_URL", "OPENAI_API_URL") or _build_api_url(
     WIRE_API,
 )
 API_KEY = _env("OPENAI_API_KEY", "openai_api_key")
+
+# ---- 图片分析专用供应商（text+picture）----
+# 未配置时回退到上面的 text 供应商，逐图分析行为与原先一致。
+# 配置后，analyze_single_figure_isolated 将走此供应商。
+IMAGE_API_KEY = _env("IMAGE_API_KEY", "image_api_key", default=API_KEY)
+IMAGE_WIRE_API = _normalize_wire_api(
+    _env("image_wire_api", "IMAGE_WIRE_API", default=WIRE_API)
+)
+IMAGE_BASE_URL = _env(
+    "image_base_url",
+    "IMAGE_BASE_URL",
+    default=API_BASE_URL,
+)
+IMAGE_API_URL = _env("image_api_url", "IMAGE_API_URL") or _build_api_url(
+    IMAGE_BASE_URL,
+    IMAGE_WIRE_API,
+)
+
 MODEL_REASONING_EFFORT = _env("MODEL_REASONING_EFFORT", default="medium")
 LLM_CONNECT_TIMEOUT = _env_int("LLM_CONNECT_TIMEOUT", default=20)
 LLM_READ_TIMEOUT = _env_int("LLM_READ_TIMEOUT", default=300)

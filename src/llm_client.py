@@ -208,7 +208,7 @@ def _extract_chat_text(data):
     return str(content)
 
 
-def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_mode=False, stage_name="LLM"):
+def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_mode=False, stage_name="LLM", wire_api=None):
     """
     调用 LLM API，支持 Responses API 与 OpenAI-compatible Chat Completions。
 
@@ -229,7 +229,8 @@ def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_
     if new_query:
         current_messages.append({"role": "user", "content": new_query})
 
-    use_responses = config.WIRE_API == "responses"
+    effective_wire = wire_api if wire_api is not None else config.WIRE_API
+    use_responses = effective_wire == "responses"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -239,7 +240,7 @@ def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_
     started = time.monotonic()
     print(
         f"[LLM:{request_id}] start stage={stage_name} model={model_name} "
-        f"api={config.WIRE_API} path={_api_path(api_url)} json={json_mode} "
+        f"api={effective_wire} path={_api_path(api_url)} json={json_mode} "
         f"text_chars={text_chars} images={image_count}",
         flush=True,
     )

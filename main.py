@@ -98,6 +98,16 @@ def main():
         "--pages-dir",
         help="额外生成 GitHub Pages 可直接发布的静态目录，例如 docs",
     )
+    parser_cli.add_argument(
+        "--text-model",
+        dest="text_model",
+        help="覆盖文本分析所用模型（默认读 .env 的 model）",
+    )
+    parser_cli.add_argument(
+        "--image-model",
+        dest="image_model",
+        help="覆盖逐图分析所用模型（默认读 .env 的 model_image，未设则同 text 模型）",
+    )
     args = parser_cli.parse_args()
 
     input_path = os.path.expanduser(args.input_path)
@@ -106,6 +116,14 @@ def main():
     if not os.path.exists(input_path):
         print(f"[错误] 输入路径不存在: {input_path}")
         sys.exit(1)
+
+    # 允许通过命令行覆盖 .env 中的模型选择（CLI 优先于配置）
+    if args.text_model or args.image_model:
+        from src import config
+        if args.text_model:
+            config.MODEL_NAME_TEXT = args.text_model
+        if args.image_model:
+            config.MODEL_NAME_IMAGE = args.image_model
 
     if should_export_html and is_existing_report_dir(input_path):
         from src import html_exporter

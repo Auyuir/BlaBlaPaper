@@ -464,10 +464,11 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
         raw = llm_client.call_llm_with_cache(
             msgs,
             [],
-            config.API_KEY,
-            config.API_URL,
+            config.IMAGE_API_KEY,
+            config.IMAGE_API_URL,
             model_name,
-            stage_name=f"figure.{filename}"
+            stage_name=f"figure.{filename}",
+            wire_api=config.IMAGE_WIRE_API,
         )
         result = utils.correct_image_references(raw, valid_filenames, None)
         return _save_text_checkpoint(checkpoint_dir, checkpoint_name, result)
