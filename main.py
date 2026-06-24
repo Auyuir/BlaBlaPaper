@@ -13,7 +13,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-REPORT_MARKDOWN_FILES = ("paper_notes.md", "ELI5_notes.md", "figs_notes.md")
+REPORT_MARKDOWN_FILES = ("paper_notes.md", "ELI5_notes.md", "figs_notes.md", "translation_notes.md")
 
 
 REPORT_SECTION_ORDER = (
@@ -68,6 +68,12 @@ def write_fig_report(output_dir, title, figure_sections, filename="figs_notes.pa
         for section in figure_sections:
             if section:
                 f.write(section)
+
+
+def write_translation_report(output_dir, title, content, filename="translation_notes.partial.md"):
+    with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
+        f.write(f"# {title}\n\n")
+        f.write(content or "")
 
 
 def is_existing_report_dir(path):
@@ -385,6 +391,19 @@ def main():
         write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content)
         write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content, filename="ELI5_notes.md")
         log("✅ 通俗解释报告已保存: ELI5_notes.md")
+
+        # 原文翻译：基于 MinerU 原文 md 逐段翻译，保留图片/公式/结构，走文本供应商。
+        write_progress(OUTPUT_DIR, "translation")
+        translation_content = core.translate_markdown(
+            full_text,
+            valid_filenames,
+            config.MODEL_NAME_TEXT,
+            checkpoint_dir=checkpoint_dir,
+        )
+        translation_title = f"{main_title} 原文翻译"
+        write_translation_report(OUTPUT_DIR, translation_title, translation_content)
+        write_translation_report(OUTPUT_DIR, translation_title, translation_content, filename="translation_notes.md")
+        log("✅ 原文翻译报告已保存: translation_notes.md")
 
         # 保存图表报告：逐图 checkpoint，并按原始图片顺序组装最终报告。
         write_progress(OUTPUT_DIR, "figures")

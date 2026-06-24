@@ -13,6 +13,7 @@ REPORTS = [
     ("paper_notes.md", "paper_notes", "论文解析"),
     ("ELI5_notes.md", "eli5_notes", "通俗讲解"),
     ("figs_notes.md", "figs_notes", "图表详解"),
+    ("translation_notes.md", "translation_notes", "原文翻译"),
 ]
 
 

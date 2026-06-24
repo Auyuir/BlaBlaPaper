@@ -365,6 +365,86 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
     result = "\n".join(sections)
     return _save_text_checkpoint(checkpoint_dir, "eli5_notes_body", result)
 
+
+def split_markdown_for_translation(full_text, max_chars=8000):
+    """按标题切分论文 Markdown 为翻译单元；超长段按段落二次切分，保持 $$...$$ 与图片行完整。"""
+    lines = full_text.split("\n")
+    blocks, cur = [], []
+    for line in lines:
+        if re.match(r"^#{1,6}\s", line) and cur:
+            blocks.append("\n".join(cur))
+            cur = []
+        cur.append(line)
+    if cur:
+        blocks.append("\n".join(cur))
+
+    # 超长 block 按段落二次切分
+    pieces = []
+    for block in blocks:
+        block = block.strip("\n")
+        if not block:
+            continue
+        if len(block) <= max_chars:
+            pieces.append(block)
+            continue
+        paras = re.split(r"\n\s*\n", block)
+        chunk = ""
+        for para in paras:
+            if chunk and len(chunk) + len(para) + 2 > max_chars:
+                pieces.append(chunk)
+                chunk = para
+            else:
+                chunk = f"{chunk}\n\n{para}" if chunk else para
+        if chunk:
+            pieces.append(chunk)
+
+    # 过短 piece 向后合并，减少调用数
+    segments = []
+    for piece in pieces:
+        if segments and len(segments[-1]) + len(piece) + 2 <= max_chars:
+            segments[-1] = f"{segments[-1]}\n\n{piece}"
+        else:
+            segments.append(piece)
+    return segments
+
+
+def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=None):
+    """将论文原文逐段翻译为简体中文，保留图片/公式/引用/标题结构。走文本供应商。"""
+    cached = _load_text_checkpoint(checkpoint_dir, "translation_full")
+    if cached is not None:
+        return cached
+
+    segments = split_markdown_for_translation(full_text)
+    print(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", flush=True)
+
+    def worker(indexed):
+        idx, seg = indexed
+        checkpoint_name = f"translation_{idx:02d}"
+        cached_seg = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
+        if cached_seg is not None:
+            return cached_seg
+        print(f"   -> 翻译第 {idx}/{len(segments)} 段 ...", flush=True)
+        messages = [
+            {"role": "system", "content": config.UNIFIED_SYSTEM_PROMPT},
+            {"role": "user", "content": utils.format_document_content(seg)},
+        ]
+        res = llm_client.call_llm_with_cache(
+            messages,
+            prompts.TRANSLATION_PROMPT,
+            config.API_KEY,
+            config.API_URL,
+            model_name,
+            stage_name=f"translation.{idx}",
+        )
+        res = utils.correct_image_references(res, valid_filenames, None)
+        return _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)
+
+    indexed_items = list(enumerate(segments, 1))
+    translated = _run_ordered_parallel("translation", indexed_items, worker)
+    result = "\n\n".join(t for t in translated if t)
+    return _save_text_checkpoint(checkpoint_dir, "translation_full", result)
+
+
 def generate_info_json_data(context_messages, model_name, additional_context=None, checkpoint_dir=None):
     """
     生成 info.json 所需的元数据和描述信息
