@@ -158,6 +158,7 @@ def main():
 
     # 判断输入类型并处理
     zip_path = None  # 跟踪临时 ZIP 文件（用于清理）
+    is_pdf_input = False  # 仅 PDF 模式才重命名输入目录
 
     try:
         if os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
@@ -194,6 +195,7 @@ def main():
 
             # 设置工作目录为解压后的目录
             work_dir = extract_dir
+            is_pdf_input = True
             print(f"✅ PDF 解析完成，工作目录: {work_dir}\n")
 
         elif os.path.isdir(input_path):
@@ -229,6 +231,12 @@ def main():
         # 提取图片引用和论文元信息
         ordered_imgs = parser.extract_images_from_markdown(full_text, INPUT_DIR)
         paper_title, caption_map = parser.get_paper_info(INPUT_DIR)
+
+        # 用 full.md 首个 # 标题校正：content_list 首个 text 可能是版权声明等噪声
+        for _line in full_text.splitlines():
+            if _line.startswith('# '):
+                paper_title = _line[2:].strip()
+                break
 
         # 生成输出目录名称
         output_subdir = utils.generate_slug_from_title(paper_title) if paper_title else f"Report_{os.path.basename(INPUT_DIR.strip('/'))}"
@@ -458,8 +466,8 @@ def main():
             if pages_dir:
                 print(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
 
-        # 重命名输入文件夹
-        if output_subdir and paper_title:
+        # 重命名输入文件夹（仅 PDF 模式：解压目录一次性；目录/.md 输入是用户指定路径，不动）
+        if is_pdf_input and output_subdir and paper_title:
             try:
                 input_dir_abs = os.path.abspath(INPUT_DIR)
                 input_parent = os.path.dirname(input_dir_abs)
