@@ -4,12 +4,84 @@
 import json
 import os
 import copy
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from . import config
 from . import prompts
 from . import llm_client
 from . import utils
 from . import parser
+
+
+def _safe_name(value):
+    value = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(value).strip().lower())
+    return value.strip("-") or "checkpoint"
+
+
+def _checkpoint_path(checkpoint_dir, name, suffix):
+    if not checkpoint_dir:
+        return None
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    return os.path.join(checkpoint_dir, f"{_safe_name(name)}{suffix}")
+
+
+def _load_text_checkpoint(checkpoint_dir, name):
+    path = _checkpoint_path(checkpoint_dir, name, ".md")
+    if path and os.path.exists(path):
+        print(f"[checkpoint] reuse {os.path.basename(path)}", flush=True)
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    return None
+
+
+def _save_text_checkpoint(checkpoint_dir, name, value):
+    path = _checkpoint_path(checkpoint_dir, name, ".md")
+    if path and value is not None:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(value)
+    return value
+
+
+def _load_json_checkpoint(checkpoint_dir, name):
+    path = _checkpoint_path(checkpoint_dir, name, ".json")
+    if path and os.path.exists(path):
+        print(f"[checkpoint] reuse {os.path.basename(path)}", flush=True)
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def _save_json_checkpoint(checkpoint_dir, name, value):
+    path = _checkpoint_path(checkpoint_dir, name, ".json")
+    if path and value is not None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(value, f, ensure_ascii=False, indent=2)
+    return value
+
+
+def _run_ordered_parallel(label, items, worker):
+    if not items:
+        return []
+    max_workers = min(config.LLM_MAX_WORKERS, len(items))
+    if max_workers <= 1:
+        return [worker(item) for item in items]
+
+    print(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", flush=True)
+    results = [None] * len(items)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {
+            executor.submit(worker, item): idx
+            for idx, item in enumerate(items)
+        }
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                results[idx] = future.result()
+            except Exception as e:
+                print(f"[parallel] {label}: task={idx + 1} failed: {e}", flush=True)
+                results[idx] = None
+    return results
 
 
 def build_full_context(text_content, image_paths):
@@ -60,12 +132,16 @@ def build_full_context(text_content, image_paths):
     return messages
 
 
-def extract_tech_points(context_messages, model_name):
+def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
     """
     提取核心技术点列表
     [Structured Output] 使用 JSON 模式以确保解析稳定。
     """
-    print(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---")
+    cached = _load_json_checkpoint(checkpoint_dir, "tech_points")
+    if cached is not None:
+        return cached
+
+    print(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---", flush=True)
 
     # [Structured Output] 提示词中必须包含 'JSON' 关键词
     prompt = """
@@ -87,31 +163,30 @@ def extract_tech_points(context_messages, model_name):
     请严格按照上述 JSON 格式提取。
     """
 
-    # [Structured Output] 显式开启 json_mode=True
     json_str = llm_client.call_llm_with_cache(
         context_messages,
         prompt,
         config.API_KEY,
         config.API_URL,
         model_name,
-        json_mode=True
+        json_mode=True,
+        stage_name="tech_points"
     )
 
     if not json_str:
         return []
 
     try:
-        # 尽管 json_mode 保证了 JSON 格式，但为了保险起见，还是移除可能存在的 markdown 标记
         clean = json_str.replace("```json", "").replace("```", "").strip()
         data = json.loads(clean)
-        return data.get("points", [])
+        points = data.get("points", [])
+        return _save_json_checkpoint(checkpoint_dir, "tech_points", points)
     except json.JSONDecodeError as e:
-        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}")
+        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", flush=True)
         return []
     except Exception as e:
-        print(f"[未知错误] {e}")
+        print(f"[未知错误] {e}", flush=True)
         return []
-
 
 def analyze_bibliographic_info(info_data):
     """
@@ -156,43 +231,47 @@ def analyze_bibliographic_info(info_data):
     return "\n\n".join(parts) if parts else "未能提取到论文基本信息。"
 
 
-def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, model_name, caption_map):
+def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None):
     """
     基于已提取的点生成技术深挖报告
-
-    Args:
-        context_messages: LLM 上下文消息
-        innovation_data: 技术点数据列表
-        valid_filenames: 有效图片文件名集合
-        model_name: 使用的模型名称
-        caption_map: 图片说明映射
-
-    Returns:
-        技术深挖报告文本
     """
+    cached = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive")
+    if cached is not None:
+        return cached
+
     if not innovation_data:
         return "未能提取到核心技术细节。"
 
-    print(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---")
+    print(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---", flush=True)
     sections = []
 
-    # 0. 概览
-    summary_prompt = f"请概括本文的**整体技术架构** (Overall Architecture)。\n{prompts.GLOBAL_STYLE_PROMPT}"
-    summary = llm_client.call_llm_with_cache(
-        context_messages,
-        summary_prompt,
-        config.API_KEY,
-        config.API_URL,
-        model_name
-    )
-    sections.append(f"### 0. 技术架构概览\n\n{utils.correct_image_references(summary, valid_filenames, caption_map)}\n")
+    summary = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary")
+    if summary is None:
+        summary_prompt = f"请概括本文的**整体技术架构** (Overall Architecture)。\n{prompts.GLOBAL_STYLE_PROMPT}"
+        summary = llm_client.call_llm_with_cache(
+            context_messages,
+            summary_prompt,
+            config.API_KEY,
+            config.API_URL,
+            model_name,
+            stage_name="tech_deep_dive.summary"
+        )
+        summary = utils.correct_image_references(summary, valid_filenames, caption_map)
+        _save_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary", summary)
+    sections.append(f"### 0. 技术架构概览\n\n{summary}\n")
 
-    # 1. 逐点分析
-    for idx, item in enumerate(innovation_data, 1):
+    indexed_items = list(enumerate(innovation_data, 1))
+
+    def build_detail(indexed_item):
+        idx, item = indexed_item
         name = item.get("name", "未知点")
         ctx = item.get("context", "")
-        print(f"   -> Tech Deep Dive: {name} ...")
+        checkpoint_name = f"tech_deep_dive_{idx:02d}_{name}"
+        cached_detail = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
+        if cached_detail is not None:
+            return f"### {idx}. {name}\n\n{cached_detail}\n"
 
+        print(f"   -> Tech Deep Dive: {name} ...", flush=True)
         prompt = f"""
         任务：深度剖析技术细节 **"{name}"**。
         参考线索：{ctx}
@@ -206,56 +285,63 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
             prompt,
             config.API_KEY,
             config.API_URL,
-            model_name
+            model_name,
+            stage_name=f"tech_deep_dive.{idx}.{name}"
         )
-        sections.append(f"### {idx}. {name}\n\n{utils.correct_image_references(detail, valid_filenames, caption_map)}\n")
+        detail = utils.correct_image_references(detail, valid_filenames, caption_map)
+        _save_text_checkpoint(checkpoint_dir, checkpoint_name, detail)
+        return f"### {idx}. {name}\n\n{detail}\n"
 
-    return "\n".join(sections)
+    sections.extend(item for item in _run_ordered_parallel("tech_deep_dive", indexed_items, build_detail) if item)
+    result = "\n".join(sections)
+    return _save_text_checkpoint(checkpoint_dir, "tech_deep_dive", result)
 
-
-def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames, model_name, caption_map):
+def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None):
     """
     [新增] 生成通俗易懂的解释报告
-
-    Args:
-        context_messages: LLM 上下文消息
-        innovation_data: 技术点数据列表
-        valid_filenames: 有效图片文件名集合
-        model_name: 使用的模型名称
-        caption_map: 图片说明映射
-
-    Returns:
-        通俗解释报告文本
     """
-    print(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---")
+    cached = _load_text_checkpoint(checkpoint_dir, "eli5_notes_body")
+    if cached is not None:
+        return cached
 
+    print(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", flush=True)
     sections = []
 
-    # 0. 整体创新的通俗解释
-    print("   -> 通俗解释: 整体创新点 ...")
-    overall_prompt = f"""
-    {prompts.ELI5_ROLE_PROMPT}
+    overall_res = _load_text_checkpoint(checkpoint_dir, "eli5_00_overall")
+    if overall_res is None:
+        print("   -> 通俗解释: 整体创新点 ...", flush=True)
+        overall_prompt = f"""
+        {prompts.ELI5_ROLE_PROMPT}
 
-    任务：请对这篇论文的**核心创新点/整体贡献**进行"直觉性解读"。
-    不要陷入细节，而是解释整篇论文主要想解决什么大问题，用了什么巧妙的思路。
+        任务：请对这篇论文的**核心创新点/整体贡献**进行"直觉性解读"。
+        不要陷入细节，而是解释整篇论文主要想解决什么大问题，用了什么巧妙的思路。
 
-    {prompts.GLOBAL_STYLE_PROMPT}
-    """
-    overall_res = llm_client.call_llm_with_cache(
-        context_messages,
-        overall_prompt,
-        config.API_KEY,
-        config.API_URL,
-        model_name
-    )
-    sections.append(f"### 0. 整体创新点通俗解读\n\n{utils.correct_image_references(overall_res, valid_filenames, caption_map)}\n")
+        {prompts.GLOBAL_STYLE_PROMPT}
+        """
+        overall_res = llm_client.call_llm_with_cache(
+            context_messages,
+            overall_prompt,
+            config.API_KEY,
+            config.API_URL,
+            model_name,
+            stage_name="eli5.overall"
+        )
+        overall_res = utils.correct_image_references(overall_res, valid_filenames, caption_map)
+        _save_text_checkpoint(checkpoint_dir, "eli5_00_overall", overall_res)
+    sections.append(f"### 0. 整体创新点通俗解读\n\n{overall_res}\n")
 
-    # 1. 逐个技术点的通俗解释
-    for idx, item in enumerate(innovation_data, 1):
+    indexed_items = list(enumerate(innovation_data, 1))
+
+    def build_eli5(indexed_item):
+        idx, item = indexed_item
         name = item.get("name", "未知点")
         ctx = item.get("context", "")
-        print(f"   -> 通俗解释: {name} ...")
+        checkpoint_name = f"eli5_{idx:02d}_{name}"
+        cached_detail = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
+        if cached_detail is not None:
+            return f"### {idx}. {name}\n\n{cached_detail}\n"
 
+        print(f"   -> 通俗解释: {name} ...", flush=True)
         prompt = f"""
         {prompts.ELI5_ROLE_PROMPT}
 
@@ -263,34 +349,32 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         参考线索：{ctx}
         {prompts.GLOBAL_STYLE_PROMPT}
         """
-
         res = llm_client.call_llm_with_cache(
             context_messages,
             prompt,
             config.API_KEY,
             config.API_URL,
-            model_name
+            model_name,
+            stage_name=f"eli5.{idx}.{name}"
         )
-        sections.append(f"### {idx}. {name}\n\n{utils.correct_image_references(res, valid_filenames, caption_map)}\n")
+        res = utils.correct_image_references(res, valid_filenames, caption_map)
+        _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)
+        return f"### {idx}. {name}\n\n{res}\n"
 
-    return "\n".join(sections)
+    sections.extend(item for item in _run_ordered_parallel("eli5_details", indexed_items, build_eli5) if item)
+    result = "\n".join(sections)
+    return _save_text_checkpoint(checkpoint_dir, "eli5_notes_body", result)
 
-
-def generate_info_json_data(context_messages, model_name, additional_context=None):
+def generate_info_json_data(context_messages, model_name, additional_context=None, checkpoint_dir=None):
     """
     生成 info.json 所需的元数据和描述信息
-
-    Args:
-        context_messages: 基础上下文消息列表
-        model_name: 使用的模型名称
-        additional_context: 可选的追加上下文文本，将被添加为新的用户消息
-
-    Returns:
-        包含 metadata 和 description 的字典，失败时返回 None
     """
-    print(f"\n--- [信息提取] 正在生成元数据和描述 (Model: {model_name}) ---")
+    cached = _load_json_checkpoint(checkpoint_dir, "info_data")
+    if cached is not None:
+        return cached
 
-    # 如果有追加上下文，添加到消息列表中
+    print(f"\n--- [信息提取] 正在生成元数据和描述 (Model: {model_name}) ---", flush=True)
+
     enhanced_messages = copy.deepcopy(context_messages)
     if additional_context:
         enhanced_messages.append({"role": "user", "content": additional_context})
@@ -301,68 +385,57 @@ def generate_info_json_data(context_messages, model_name, additional_context=Non
         config.API_KEY,
         config.API_URL,
         model_name,
-        json_mode=True
+        json_mode=True,
+        stage_name="info_json"
     )
 
     if not json_str:
         return None
 
     try:
-        # 清理可能的 markdown 标记
         clean = json_str.replace("```json", "").replace("```", "").strip()
         data = json.loads(clean)
-        return data
+        return _save_json_checkpoint(checkpoint_dir, "info_data", data)
     except json.JSONDecodeError as e:
-        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}")
+        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", flush=True)
         return None
     except Exception as e:
-        print(f"[未知错误] {e}")
+        print(f"[未知错误] {e}", flush=True)
         return None
 
-
-def analyze_section(title, task_prompt, context_messages, valid_filenames, model_name, caption_map):
+def analyze_section(title, task_prompt, context_messages, valid_filenames, model_name, caption_map, checkpoint_dir=None, checkpoint_name=None):
     """
     分析论文的特定章节
-
-    Args:
-        title: 章节标题（用于日志输出）
-        task_prompt: 任务提示词
-        context_messages: LLM 上下文消息
-        valid_filenames: 有效图片文件名集合
-        model_name: 使用的模型名称
-        caption_map: 图片说明映射
-
-    Returns:
-        分析结果文本
     """
-    print(f"--- 正在分析: {title} ---")
+    checkpoint_name = checkpoint_name or f"section_{title}"
+    cached = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
+    if cached is not None:
+        return cached
+
+    print(f"--- 正在分析: {title} ---", flush=True)
     full_prompt = f"{task_prompt}\n{prompts.GLOBAL_STYLE_PROMPT}"
     res = llm_client.call_llm_with_cache(
         context_messages,
         full_prompt,
         config.API_KEY,
         config.API_URL,
-        model_name
+        model_name,
+        stage_name=f"section.{title}"
     )
-    return utils.correct_image_references(res, valid_filenames, caption_map)
+    res = utils.correct_image_references(res, valid_filenames, caption_map)
+    return _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)
 
-
-def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model_name, caption=None):
+def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model_name, caption=None, checkpoint_dir=None):
     """
     单独分析单个图片
-
-    Args:
-        image_path: 图片文件路径
-        full_text: 完整论文文本
-        valid_filenames: 有效图片文件名集合
-        model_name: 使用的模型名称
-        caption: 可选的图片说明
-
-    Returns:
-        图片分析结果文本，失败时返回 None
     """
     filename = os.path.basename(image_path)
-    print(f"   -> 单图分析: {filename} ...")
+    checkpoint_name = f"figure_{filename}"
+    cached = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
+    if cached is not None:
+        return cached
+
+    print(f"   -> 单图分析: {filename} ...", flush=True)
 
     prompt = f"""
     任务：详细分析图片 {filename}。
@@ -393,9 +466,11 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
             [],
             config.API_KEY,
             config.API_URL,
-            model_name
+            model_name,
+            stage_name=f"figure.{filename}"
         )
-        return utils.correct_image_references(raw, valid_filenames, None)
+        result = utils.correct_image_references(raw, valid_filenames, None)
+        return _save_text_checkpoint(checkpoint_dir, checkpoint_name, result)
     except Exception as e:
-        print(f"图表分析失败: {e}")
+        print(f"图表分析失败: {e}", flush=True)
         return None

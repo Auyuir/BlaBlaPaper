@@ -9,9 +9,65 @@ import sys
 import shutil
 import glob
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 REPORT_MARKDOWN_FILES = ("paper_notes.md", "ELI5_notes.md", "figs_notes.md")
+
+
+REPORT_SECTION_ORDER = (
+    "0. 论文基本信息",
+    "1. 摘要",
+    "2. 背景知识与核心贡献",
+    "3. 核心技术和实现细节",
+    "4. 实验方法与实验结果",
+)
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def write_progress(output_dir, stage, status="running", error=None):
+    if not output_dir:
+        return
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        payload = {
+            "stage": stage,
+            "status": status,
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        if error:
+            payload["error"] = str(error)
+        with open(os.path.join(output_dir, "progress.json"), "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def write_paper_report(output_dir, main_title, results, filename="paper_notes.partial.md"):
+    path = os.path.join(output_dir, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"# {main_title} 论文解析\n\n")
+        for key in REPORT_SECTION_ORDER:
+            if key in results:
+                f.write(f"## {key}\n\n{results[key]}\n\n---\n\n")
+
+
+def write_eli5_report(output_dir, title, content, filename="ELI5_notes.partial.md"):
+    with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
+        f.write(f"# {title}\n\n")
+        f.write(content or "")
+
+
+def write_fig_report(output_dir, title, figure_sections, filename="figs_notes.partial.md"):
+    with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
+        f.write(f"# {title} 图表详解\n\n")
+        for section in figure_sections:
+            if section:
+                f.write(section)
 
 
 def is_existing_report_dir(path):
@@ -172,10 +228,19 @@ def main():
 
         # 提前定义 main_title，供后续使用
         main_title = paper_title.replace('\n', ' ') if paper_title else "论文分析报告"
+        checkpoint_dir = os.path.join(OUTPUT_DIR, ".checkpoints")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        write_progress(OUTPUT_DIR, "start")
 
         # 生成并保存 info.json（提前生成，供基本信息提取使用）
         pdf_metadata_context = parser.get_pdf_metadata_context(INPUT_DIR)
-        info_data = core.generate_info_json_data(full_context, config.MODEL_NAME_TEXT, pdf_metadata_context)
+        write_progress(OUTPUT_DIR, "info_json")
+        info_data = core.generate_info_json_data(
+            full_context,
+            config.MODEL_NAME_TEXT,
+            pdf_metadata_context,
+            checkpoint_dir=checkpoint_dir,
+        )
 
         # 立即保存 info.json
         if info_data:
@@ -187,75 +252,128 @@ def main():
             }
             with open(os.path.join(OUTPUT_DIR, "info.json"), "w", encoding="utf-8") as f:
                 json.dump(final_info, f, ensure_ascii=False, indent=2)
-            print(f"✅ 信息文件已保存: info.json")
+            log("✅ 信息文件已保存: info.json")
         else:
-            print(f"⚠️  信息提取失败，跳过 info.json 生成")
+            log("⚠️  信息提取失败，跳过 info.json 生成")
 
-        # 生成各个分析章节
         results["0. 论文基本信息"] = core.analyze_bibliographic_info(info_data)
-        results["1. 摘要"] = core.analyze_section(
-            "摘要",
-            "撰写结构化摘要：目的、方法、结果、结论。",
-            full_context,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            caption_map
-        )
-        results["2. 背景知识与核心贡献"] = core.analyze_section(
-            "背景与贡献",
-            "概括研究背景、动机及核心贡献。",
-            full_context,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            caption_map
-        )
+        write_paper_report(OUTPUT_DIR, main_title, results)
 
-        # 提取技术点
-        tech_points = core.extract_tech_points(full_context, config.MODEL_NAME_TEXT)
+        # 独立的章节分析和技术点提取可以并发执行。
+        analysis_tasks = [
+            (
+                "section",
+                "1. 摘要",
+                lambda: core.analyze_section(
+                    "摘要",
+                    "撰写结构化摘要：目的、方法、结果、结论。",
+                    full_context,
+                    valid_filenames,
+                    config.MODEL_NAME_TEXT,
+                    caption_map,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_name="section_summary",
+                ),
+            ),
+            (
+                "section",
+                "2. 背景知识与核心贡献",
+                lambda: core.analyze_section(
+                    "背景与贡献",
+                    "概括研究背景、动机及核心贡献。",
+                    full_context,
+                    valid_filenames,
+                    config.MODEL_NAME_TEXT,
+                    caption_map,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_name="section_background_contribution",
+                ),
+            ),
+            (
+                "section",
+                "4. 实验方法与实验结果",
+                lambda: core.analyze_section(
+                    "实验",
+                    "分析实验设置、结果数据、消融实验。",
+                    full_context,
+                    valid_filenames,
+                    config.MODEL_NAME_TEXT,
+                    caption_map,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_name="section_experiments",
+                ),
+            ),
+            (
+                "tech_points",
+                "tech_points",
+                lambda: core.extract_tech_points(
+                    full_context,
+                    config.MODEL_NAME_TEXT,
+                    checkpoint_dir=checkpoint_dir,
+                ),
+            ),
+        ]
 
+        tech_points = []
+        max_workers = min(config.LLM_MAX_WORKERS, len(analysis_tasks))
+        log(f"[parallel] main_analysis: workers={max_workers} tasks={len(analysis_tasks)}")
+        write_progress(OUTPUT_DIR, "main_analysis")
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_task = {
+                executor.submit(task_fn): (task_type, key)
+                for task_type, key, task_fn in analysis_tasks
+            }
+            for future in as_completed(future_to_task):
+                task_type, key = future_to_task[future]
+                try:
+                    value = future.result()
+                except Exception as e:
+                    log(f"[parallel] main_analysis: {key} failed: {e}")
+                    value = [] if task_type == "tech_points" else None
+
+                if task_type == "tech_points":
+                    tech_points = value or []
+                    log(f"[parallel] main_analysis: tech_points done count={len(tech_points)}")
+                else:
+                    results[key] = value
+                    write_paper_report(OUTPUT_DIR, main_title, results)
+                    log(f"[parallel] main_analysis: {key} done")
+
+        write_progress(OUTPUT_DIR, "tech_deep_dive")
         results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
             full_context,
             tech_points,
             valid_filenames,
             config.MODEL_NAME_TEXT,
-            caption_map
+            caption_map,
+            checkpoint_dir=checkpoint_dir,
         )
+        write_paper_report(OUTPUT_DIR, main_title, results)
 
+        write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
+        log("✅ 主报告已保存")
+
+        write_progress(OUTPUT_DIR, "eli5")
         eli5_content = core.analyze_eli5_innovations(
             full_context,
             tech_points,
             valid_filenames,
             config.MODEL_NAME_TEXT,
-            caption_map
+            caption_map,
+            checkpoint_dir=checkpoint_dir,
         )
 
-        results["4. 实验方法与实验结果"] = core.analyze_section(
-            "实验",
-            "分析实验设置、结果数据、消融实验。",
-            full_context,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            caption_map
-        )
-
-        # 保存主报告
-        with open(os.path.join(OUTPUT_DIR, "paper_notes.md"), "w", encoding="utf-8") as f:
-            f.write(f"# {main_title} 论文解析\n\n")
-            for k, v in results.items():
-                f.write(f"## {k}\n\n{v}\n\n---\n\n")
-        print(f"✅ 主报告已保存")
-
-        # 保存通俗解释报告
         eli5_title = f"{main_title} 通俗讲解"
-        with open(os.path.join(OUTPUT_DIR, "ELI5_notes.md"), "w", encoding="utf-8") as f:
-            f.write(f"# {eli5_title}\n\n")
-            f.write(eli5_content)
-        print(f"✅ 通俗解释报告已保存: ELI5_notes.md")
+        write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content)
+        write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content, filename="ELI5_notes.md")
+        log("✅ 通俗解释报告已保存: ELI5_notes.md")
 
-        # 保存图表报告
+        # 保存图表报告：逐图 checkpoint，并按原始图片顺序组装最终报告。
+        write_progress(OUTPUT_DIR, "figures")
         unique_imgs = sorted(list(set(new_img_paths)), key=new_img_paths.index)
-        fig_md = f"# {main_title} 图表详解\n\n"
-        for img_path in unique_imgs:
+        figure_sections = [None] * len(unique_imgs)
+
+        def analyze_figure(index, img_path):
             fname = os.path.basename(img_path)
             caption = caption_map.get(fname, "")
             res = core.analyze_single_figure_isolated(
@@ -263,14 +381,34 @@ def main():
                 full_text,
                 valid_filenames,
                 config.MODEL_NAME_IMAGE,
-                caption
+                caption,
+                checkpoint_dir=checkpoint_dir,
             )
-            if res:
-                fig_md += f"### {caption or fname}\n\n![{fname}](images/{fname})\n\n{res}\n\n"
+            if not res:
+                return index, None
+            section = f"### {caption or fname}\n\n![{fname}](images/{fname})\n\n{res}\n\n"
+            return index, section
 
-        with open(os.path.join(OUTPUT_DIR, "figs_notes.md"), "w", encoding="utf-8") as f:
-            f.write(fig_md)
-        print(f"✅ 图表报告已保存")
+        fig_workers = min(config.LLM_MAX_WORKERS, len(unique_imgs)) if unique_imgs else 1
+        log(f"[parallel] figures: workers={fig_workers} tasks={len(unique_imgs)}")
+        with ThreadPoolExecutor(max_workers=fig_workers) as executor:
+            future_to_idx = {
+                executor.submit(analyze_figure, idx, img_path): idx
+                for idx, img_path in enumerate(unique_imgs)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    _, section = future.result()
+                    figure_sections[idx] = section
+                    log(f"[parallel] figures: done {idx + 1}/{len(unique_imgs)}")
+                except Exception as e:
+                    log(f"[parallel] figures: task={idx + 1} failed: {e}")
+                write_fig_report(OUTPUT_DIR, main_title, figure_sections)
+
+        write_fig_report(OUTPUT_DIR, main_title, figure_sections, filename="figs_notes.md")
+        log("✅ 图表报告已保存")
+        write_progress(OUTPUT_DIR, "reports", status="done")
 
         # 可选：导出 HTML 版本
         if args.html or pages_dir:
