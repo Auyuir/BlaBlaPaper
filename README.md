@@ -62,8 +62,8 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # ---- DeepSeek（二选一即可） ----
 # model_provider=DeepSeek
-# model=deepseek-chat
-# base_url=https://api.deepseek.com/v1
+# model=deepseek-v4-flash
+# base_url=https://api.deepseek.com
 # wire_api=chat
 # OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
