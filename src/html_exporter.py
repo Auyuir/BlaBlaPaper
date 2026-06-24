@@ -66,7 +66,8 @@ def _llm_review_html(html_content, md_name):
             config.API_KEY,
             config.API_URL,
             config.MODEL_NAME_TEXT,
-            json_mode=False
+            json_mode=False,
+            stage_name=f"html_review.{md_name}"
         )
         if result and result.strip():
             cleaned = result.strip()

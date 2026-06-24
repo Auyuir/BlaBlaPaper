@@ -33,12 +33,29 @@ load_dotenv()
 
 
 def _env(*names, default=""):
-    """按顺序读取环境变量，支持小写 .env 字段和常见大写别名。"""
+    """按顺序读取环境变量，支持小写 .env 字段和常见大写别名。
+    优先使用 .env 文件中的值（通过 dotenv 加载），再回退到系统环境变量。"""
     for name in names:
-        value = os.getenv(name)
+        value = _dotenv_values.get(name) or os.getenv(name)
         if value is not None and value.strip():
             return value.strip()
     return default
+
+
+# 预读取 .env 以便 _env 优先使用 .env 中的值
+_dotenv_values = {}
+_dotenv_path = Path.cwd() / ".env"
+if (PROJECT_ROOT / ".env").exists():
+    _dotenv_path = PROJECT_ROOT / ".env"
+try:
+    for raw_line in _dotenv_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        _dotenv_values[key.strip()] = value.strip().strip('"').strip("'")
+except Exception:
+    pass
 
 
 def _normalize_wire_api(value):
@@ -48,6 +65,14 @@ def _normalize_wire_api(value):
     if normalized in {"chat", "chat_completions", "chat/completions"}:
         return "chat_completions"
     return normalized or "responses"
+
+
+def _env_int(*names, default):
+    value = _env(*names, default=str(default))
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _build_api_url(base_url, wire_api):
@@ -81,6 +106,10 @@ API_URL = _env("api_url", "API_URL", "OPENAI_API_URL") or _build_api_url(
 )
 API_KEY = _env("OPENAI_API_KEY", "openai_api_key")
 MODEL_REASONING_EFFORT = _env("MODEL_REASONING_EFFORT", default="medium")
+LLM_CONNECT_TIMEOUT = _env_int("LLM_CONNECT_TIMEOUT", default=20)
+LLM_READ_TIMEOUT = _env_int("LLM_READ_TIMEOUT", default=300)
+LLM_MAX_RETRIES = _env_int("LLM_MAX_RETRIES", default=3)
+LLM_MAX_WORKERS = max(1, _env_int("LLM_MAX_WORKERS", default=2))
 
 if not API_KEY:
     raise ValueError(
