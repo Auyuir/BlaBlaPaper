@@ -1,0 +1,20 @@
+{
+  "index": "311-a-1408-to-13569tokens-reram-on-logic-stacked-outlier-free-large-language-model-accelerator-with-block-clustered-weight-compression-and-adaptive-parallel-speculative-decoding",
+  "paper_title": "31.1 A 14.08-to-135.69Token/s ReRAM-on-Logic Stacked Outlier-Free Large-Language-Model Accelerator with Block-Clustered Weight-Compression and Adaptive Parallel-Speculative-Decoding",
+  "metadata": {
+    "authors": [
+      "Pingcheng Dong",
+      "Yonghao Tan",
+      "Xuejiao Liu",
+      "et al."
+    ],
+    "affiliations": [
+      "Hong Kong University of Science and Technology",
+      "AI Chip Center for Emerging Smart System"
+    ],
+    "venue": "ISSCC",
+    "year": 2025,
+    "doi": null
+  },
+  "description": "本文提出了一种基于推测解码的LLM加速器，采用55nm ReRAM-on-logic堆叠技术。针对推测解码中目标LLM和草稿LLM的延迟瓶颈，提出了三大创新：1)局部旋转单元(LRU)实现无异常值低比特量化；2)结合块级向量量化(BVQ)的ReRAM堆叠近存处理(RS-PNM)架构，避免草稿LLM外部存储访问；3)自适应并行推测解码(APSD)及乱序调度器以降低拒绝率。该芯片实现了14.08至135.69 Token/s的吞吐量，相比BF16基线实现4.46至7.17倍加速和3.74至4.85倍能耗节省。"
+}
