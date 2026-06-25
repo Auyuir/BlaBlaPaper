@@ -435,6 +435,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
             config.API_URL,
             model_name,
             stage_name=f"translation.{idx}",
+            strip_headings=False,
         )
         res = utils.correct_image_references(res, valid_filenames, None)
         return _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)

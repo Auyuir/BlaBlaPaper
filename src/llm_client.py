@@ -208,7 +208,7 @@ def _extract_chat_text(data):
     return str(content)
 
 
-def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_mode=False, stage_name="LLM", wire_api=None):
+def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_mode=False, stage_name="LLM", wire_api=None, strip_headings=True):
     """
     调用 LLM API，支持 Responses API 与 OpenAI-compatible Chat Completions。
 
@@ -286,7 +286,7 @@ def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_
                 f"elapsed={elapsed:.1f}s output_chars={output_chars}",
                 flush=True,
             )
-            return content if json_mode else clean_llm_output(content)
+            return content if json_mode else clean_llm_output(content, strip_headings=strip_headings)
 
         except requests.exceptions.RequestException as e:
             elapsed = time.monotonic() - started
