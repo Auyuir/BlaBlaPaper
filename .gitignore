@@ -1,0 +1,4 @@
+# 中间产物（工具运行产生，归档时排除）
+.checkpoints/
+*.partial.md
+progress.json
