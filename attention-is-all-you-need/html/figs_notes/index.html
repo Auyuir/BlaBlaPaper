@@ -1,0 +1,2262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attention Is All You Need 图表详解 - BlaBlaCutter</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --sidebar: #0f172a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  line-height: 1.72;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 28px;
+  color: #fff;
+  background: var(--sidebar);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .12);
+}
+.brand {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-title {
+  overflow: hidden;
+  color: #cbd5e1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 0;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.sidebar,
+.toc {
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 28px 18px;
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: #fff;
+}
+.toc {
+  border-left: 1px solid var(--line);
+  background: #fff;
+}
+.nav-link,
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-link {
+  margin-bottom: 4px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.nav-link:hover,
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.toc-title {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.toc a {
+  padding: 5px 0;
+  font-size: 13px;
+}
+.toc a:hover { color: var(--accent); }
+.toc-level-3 { padding-left: 16px !important; }
+.content {
+  min-width: 0;
+  padding: 36px 48px 80px;
+}
+article {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 44px 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+h1, h2, h3, h4, h5, h6 {
+  position: relative;
+  line-height: 1.28;
+  scroll-margin-top: 76px;
+}
+h1 {
+  margin-top: 0;
+  font-size: 30px;
+}
+h2 {
+  margin-top: 42px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 24px;
+}
+h3 { margin-top: 30px; font-size: 20px; }
+h4 { margin-top: 24px; font-size: 17px; }
+.anchor {
+  margin-left: 8px;
+  color: #94a3b8;
+  font-size: .72em;
+  text-decoration: none;
+  opacity: 0;
+}
+h1:hover .anchor,
+h2:hover .anchor,
+h3:hover .anchor,
+h4:hover .anchor { opacity: 1; }
+p { margin: 14px 0; }
+ul, ol { padding-left: 1.35em; }
+li { margin: 5px 0; }
+a { color: var(--accent); }
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  font-size: .92em;
+}
+pre {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+pre code { padding: 0; background: transparent; color: inherit; }
+figure {
+  margin: 24px 0;
+  text-align: center;
+}
+figure img,
+p img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  font-size: 14px;
+  overflow-x: auto;
+  display: block;
+}
+table th, table td {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+table tbody tr:hover {
+  background: var(--accent-soft);
+}
+figure em {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.index {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 56px 28px;
+}
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.report-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+.report-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+}
+.report-card span {
+  display: block;
+  font-weight: 700;
+}
+	.report-card small {
+	  color: var(--muted);
+	}
+	.paper-card p {
+	  margin: 10px 0 0;
+	  color: var(--muted);
+	  font-size: 14px;
+	  line-height: 1.55;
+	}
+	.muted { color: var(--muted); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 190px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 760px) {
+  .topbar { padding: 0 16px; }
+  .layout { display: block; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 12px;
+  }
+  .content { padding: 20px 12px 48px; }
+  article { padding: 24px 18px 40px; }
+  h1 { font-size: 25px; }
+  h2 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">BlaBlaCutter</a>
+    <span class="page-title">Attention Is All You Need 图表详解</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav>
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link" href="../paper_notes/index.html">论文解析</a>
+<a class="nav-link" href="../eli5_notes/index.html">通俗讲解</a>
+<a class="nav-link active" href="../figs_notes/index.html">图表详解</a>
+<a class="nav-link" href="../translation_notes/index.html">原文翻译</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <article><h1 id="attention-is-all-you-need-图表详解">Attention Is All You Need 图表详解<a class="anchor" href="#attention-is-all-you-need-图表详解">#</a></h1>
+<h3 id="figure-1-the-transformer---model-architecture">Figure 1: The Transformer - model architecture.<a class="anchor" href="#figure-1-the-transformer---model-architecture">#</a></h3>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像对象</strong>：该图展示的是论文《Attention Is All You Need》中的 <strong>Figure 1: The Transformer - model architecture</strong>，即 <strong>Transformer 编码器-解码器整体架构图</strong>。</li>
+</ul>
+<ul>
+<li><strong>整体结构概览</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>模块</th>
+<th style="text-align:right">位置</th>
+<th>功能</th>
+<th style="text-align:right">是否重复堆叠</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Encoder</strong></td>
+<td style="text-align:right">左侧</td>
+<td>将输入序列编码为上下文表示</td>
+<td style="text-align:right"><strong>N×</strong></td>
+</tr>
+<tr>
+<td><strong>Decoder</strong></td>
+<td style="text-align:right">右侧</td>
+<td>基于已生成输出和 Encoder 表示生成目标序列</td>
+<td style="text-align:right"><strong>N×</strong></td>
+</tr>
+<tr>
+<td><strong>Softmax + Linear</strong></td>
+<td style="text-align:right">右上方</td>
+<td>将 Decoder 输出映射为词表概率</td>
+<td style="text-align:right">否</td>
+</tr>
+<tr>
+<td><strong>Positional Encoding</strong></td>
+<td style="text-align:right">底部输入处</td>
+<td>注入序列位置信息</td>
+<td style="text-align:right">否</td>
+</tr>
+<tr>
+<td><strong>Embedding</strong></td>
+<td style="text-align:right">最底部</td>
+<td>将 token 转换为向量表示</td>
+<td style="text-align:right">否</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>核心视觉信息</strong>：图中左侧是 <strong>Encoder stack</strong>，右侧是 <strong>Decoder stack</strong>。二者都由多个相同结构的层堆叠而成，图中用 <strong>N×</strong> 表示重复堆叠，论文默认设置为 <strong>N = 6</strong>。</li>
+</ul>
+<ul>
+<li><strong>输入端流程</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">步骤</th>
+<th>模块</th>
+<th>说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td><strong>Inputs</strong></td>
+<td>输入源语言 token 序列</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td><strong>Input Embedding</strong></td>
+<td>将离散 token 映射为连续向量</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td><strong>Positional Encoding</strong></td>
+<td>与 embedding 相加，提供位置信息</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td><strong>Encoder Stack</strong></td>
+<td>经过多层 self-attention 与 feed-forward 处理</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td><strong>Encoder Output</strong></td>
+<td>输出供 Decoder 的 encoder-decoder attention 使用</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Encoder 内部结构</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">子层顺序</th>
+<th>子层名称</th>
+<th>作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td><strong>Multi-Head Attention</strong></td>
+<td>对输入序列内部所有位置进行 <strong>self-attention</strong></td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td><strong>Add &amp; Norm</strong></td>
+<td>残差连接 + Layer Normalization</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td><strong>Feed Forward</strong></td>
+<td>对每个位置独立应用前馈网络</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td><strong>Add &amp; Norm</strong></td>
+<td>再次进行残差连接 + Layer Normalization</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Encoder 的关键特征</strong>：</li>
+<ul>
+<li><strong>Multi-Head Attention</strong> 允许每个输入位置直接关注其他所有输入位置。</li>
+<li><strong>Feed Forward</strong> 是 position-wise 的，即每个位置共享同一组参数但独立计算。</li>
+<li>每个子层外都有 <strong>residual connection</strong>，图中用绕回箭头表示。</li>
+<li>每个残差连接之后都有 <strong>Add &amp; Norm</strong>，对应公式：<strong>LayerNorm(x + Sublayer(x))</strong>。</li>
+<li>Encoder 不使用 <strong>RNN</strong> 或 <strong>CNN</strong>，完全基于 attention 与前馈网络。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>输出端流程</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">步骤</th>
+<th>模块</th>
+<th>说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td><strong>Outputs shifted right</strong></td>
+<td>Decoder 输入为右移后的目标序列</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td><strong>Output Embedding</strong></td>
+<td>将目标 token 映射为向量</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td><strong>Positional Encoding</strong></td>
+<td>加入位置信息</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td><strong>Decoder Stack</strong></td>
+<td>逐层生成上下文表示</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td><strong>Linear</strong></td>
+<td>映射到词表维度</td>
+</tr>
+<tr>
+<td style="text-align:right">6</td>
+<td><strong>Softmax</strong></td>
+<td>得到 <strong>Output Probabilities</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Decoder 内部结构</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">子层顺序</th>
+<th>子层名称</th>
+<th>作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td><strong>Masked Multi-Head Attention</strong></td>
+<td>对已生成目标序列进行 masked self-attention</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td><strong>Add &amp; Norm</strong></td>
+<td>残差连接 + Layer Normalization</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td><strong>Multi-Head Attention</strong></td>
+<td>对 Encoder 输出进行 encoder-decoder attention</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td><strong>Add &amp; Norm</strong></td>
+<td>残差连接 + Layer Normalization</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td><strong>Feed Forward</strong></td>
+<td>position-wise 前馈网络</td>
+</tr>
+<tr>
+<td style="text-align:right">6</td>
+<td><strong>Add &amp; Norm</strong></td>
+<td>残差连接 + Layer Normalization</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Decoder 的关键特征</strong>：</li>
+<ul>
+<li><strong>Masked Multi-Head Attention</strong> 防止当前位置看到未来 token。</li>
+<li>该 mask 保证模型满足 <strong>auto-regressive</strong> 生成条件。</li>
+<li>第二个 <strong>Multi-Head Attention</strong> 接收来自 Encoder 的输出，完成源序列到目标序列的对齐。</li>
+<li>Decoder 比 Encoder 多一个 attention 子层，即 <strong>encoder-decoder attention</strong>。</li>
+<li>右侧顶部的 <strong>Linear + Softmax</strong> 将 Decoder 最终表示转换为词表上的概率分布。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中三类 Attention 的对应关系</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>图中模块</th>
+<th>类型</th>
+<th>Query 来源</th>
+<th>Key / Value 来源</th>
+<th>功能</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Encoder 中的 <strong>Multi-Head Attention</strong></td>
+<td><strong>Encoder self-attention</strong></td>
+<td>Encoder 前一层</td>
+<td>Encoder 前一层</td>
+<td>建模输入序列内部依赖</td>
+</tr>
+<tr>
+<td>Decoder 底部的 <strong>Masked Multi-Head Attention</strong></td>
+<td><strong>Decoder masked self-attention</strong></td>
+<td>Decoder 前一层</td>
+<td>Decoder 前一层</td>
+<td>建模已生成目标序列依赖</td>
+</tr>
+<tr>
+<td>Decoder 中部的 <strong>Multi-Head Attention</strong></td>
+<td><strong>Encoder-decoder attention</strong></td>
+<td>Decoder 前一层</td>
+<td>Encoder 输出</td>
+<td>让 Decoder 关注源序列信息</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>箭头含义分析</strong>：</li>
+<ul>
+<li>自下而上的主箭头表示 <strong>数据前向传播路径</strong>。</li>
+<li>Encoder 到 Decoder 的横向箭头表示 <strong>Encoder 输出被 Decoder attention 读取</strong>。</li>
+<li>每个子层旁边的弯曲箭头表示 <strong>residual connection</strong>。</li>
+<li>Positional Encoding 与 Embedding 之间的加号表示二者进行 <strong>element-wise addition</strong>。</li>
+<li>Decoder 输出顶部箭头表示经过 <strong>Linear</strong> 和 <strong>Softmax</strong> 后生成最终概率。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Positional Encoding 的作用</strong>：</li>
+<ul>
+<li>Transformer 没有 recurrence 和 convolution，因此天然不包含顺序信息。</li>
+<li>图中在 <strong>Input Embedding</strong> 和 <strong>Output Embedding</strong> 后加入 <strong>Positional Encoding</strong>。</li>
+<li>该操作让模型区分 token 的顺序位置。</li>
+<li>论文中使用的是 sinusoidal positional encoding，也可替换为 learned positional embedding。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Embedding 与 Positional Encoding 的关系</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>组件</th>
+<th style="text-align:right">维度</th>
+<th>操作</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Input Embedding</strong></td>
+<td style="text-align:right">d_model</td>
+<td>token 向量化</td>
+</tr>
+<tr>
+<td><strong>Output Embedding</strong></td>
+<td style="text-align:right">d_model</td>
+<td>目标 token 向量化</td>
+</tr>
+<tr>
+<td><strong>Positional Encoding</strong></td>
+<td style="text-align:right">d_model</td>
+<td>提供位置信息</td>
+</tr>
+<tr>
+<td><strong>Embedding + Positional Encoding</strong></td>
+<td style="text-align:right">d_model</td>
+<td>相加后输入 Encoder / Decoder</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Add &amp; Norm 的设计意义</strong>：</li>
+<ul>
+<li><strong>Add</strong> 表示 residual connection，有助于梯度传播。</li>
+<li><strong>Norm</strong> 表示 Layer Normalization，提高训练稳定性。</li>
+<li>每个 attention 子层和 feed-forward 子层后都使用该结构。</li>
+<li>这是 Transformer 能够堆叠多层的重要原因之一。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Feed Forward 模块作用</strong>：</li>
+<ul>
+<li>图中的 <strong>Feed Forward</strong> 对每个位置独立处理。</li>
+<li>它不负责跨位置交互，跨位置交互主要由 <strong>Multi-Head Attention</strong> 完成。</li>
+<li>论文中对应公式为：<strong>FFN(x) = max(0, xW₁ + b₁)W₂ + b₂</strong>。</li>
+<li>默认维度为 <strong>d_model = 512</strong>，内部隐藏层维度为 <strong>d_ff = 2048</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Masked Multi-Head Attention 的重要性</strong>：</li>
+<ul>
+<li>Decoder 生成第 i 个 token 时，只能依赖第 i 个位置之前的 token。</li>
+<li>图中 <strong>Outputs shifted right</strong> 和 <strong>Masked Multi-Head Attention</strong> 共同保证这一点。</li>
+<li>mask 会将非法未来位置的 attention score 设为 <strong>−∞</strong>，softmax 后权重为 0。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>Encoder 与 Decoder 对比</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>对比项</th>
+<th>Encoder</th>
+<th>Decoder</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>输入</td>
+<td>源序列 embedding + position</td>
+<td>右移目标序列 embedding + position</td>
+</tr>
+<tr>
+<td>self-attention</td>
+<td>普通 self-attention</td>
+<td>masked self-attention</td>
+</tr>
+<tr>
+<td>是否访问 Encoder 输出</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr>
+<td>子层数量</td>
+<td>2 个主要子层</td>
+<td>3 个主要子层</td>
+</tr>
+<tr>
+<td>输出用途</td>
+<td>提供源序列表示</td>
+<td>生成目标词概率</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>该图体现的 Transformer 核心创新</strong>：</li>
+<ul>
+<li><strong>完全移除 RNN</strong>。</li>
+<li><strong>完全移除 CNN</strong>。</li>
+<li>使用 <strong>self-attention</strong> 建模序列内部依赖。</li>
+<li>使用 <strong>multi-head attention</strong> 从多个子空间并行捕获关系。</li>
+<li>通过 <strong>positional encoding</strong> 弥补无 recurrence 带来的位置信息缺失。</li>
+<li>通过高度并行结构显著提升训练效率。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图像中的信息流总结</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>路径</th>
+<th>说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Inputs → Encoder</strong></td>
+<td>源序列被编码为上下文表示</td>
+</tr>
+<tr>
+<td><strong>Outputs shifted right → Decoder</strong></td>
+<td>目标端历史 token 作为 Decoder 输入</td>
+</tr>
+<tr>
+<td><strong>Encoder → Decoder</strong></td>
+<td>Decoder 通过 encoder-decoder attention 读取源序列</td>
+</tr>
+<tr>
+<td><strong>Decoder → Linear → Softmax</strong></td>
+<td>输出词表概率，预测下一个 token</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>论文语境下的意义</strong>：</li>
+<ul>
+<li>该图是 Transformer 架构的总览图，也是后续几乎所有 Transformer 变体的基础。</li>
+<li>BERT 主要继承了其中的 <strong>Encoder stack</strong>。</li>
+<li>GPT 主要继承了其中的 <strong>Decoder masked self-attention stack</strong>。</li>
+<li>T5、BART 等模型则继续使用类似的 <strong>Encoder-Decoder</strong> 框架。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>简要结论</strong>：</li>
+<ul>
+<li>这张图展示了 Transformer 如何用 <strong>Multi-Head Attention + Feed Forward + Add &amp; Norm + Positional Encoding</strong> 构成完整的序列到序列模型。</li>
+<li>左侧 Encoder 负责理解输入，右侧 Decoder 负责条件生成。</li>
+<li>整个架构的关键优势是 <strong>并行化强、长距离依赖路径短、表达能力高</strong>。</li>
+</ul>
+</ul>
+<h3 id="figure-2-left-scaled-dot-product-attention-right-multi-head-attention-consists-of-several-attention-layers-running-in-parallel">Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.<a class="anchor" href="#figure-2-left-scaled-dot-product-attention-right-multi-head-attention-consists-of-several-attention-layers-running-in-parallel">#</a></h3>
+<figure><img src="../images/da0cb167628b8c102175cfb8905c35ca892193b2792f27c2ecc67f25752338a5.jpg" alt="da0cb167628b8c102175cfb8905c35ca892193b2792f27c2ecc67f25752338a5.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像整体内容</strong></li>
+<ul>
+<li>该图是 Transformer 论文中的 <strong>Figure 2</strong>，展示了 Transformer 的核心计算模块：</li>
+<ul>
+<li>左侧：<strong>Scaled Dot-Product Attention</strong></li>
+<li>右侧：<strong>Multi-Head Attention</strong></li>
+</ul>
+<li>图的核心目的是说明：Transformer 如何通过 <strong>Query / Key / Value</strong> 机制计算注意力，以及如何将多个注意力头并行组合，形成更强的表示能力。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>区域</th>
+<th>模块名称</th>
+<th>核心作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>左侧</td>
+<td><strong>Scaled Dot-Product Attention</strong></td>
+<td>单个 attention head 的具体计算流程</td>
+</tr>
+<tr>
+<td>右侧</td>
+<td><strong>Multi-Head Attention</strong></td>
+<td>多个 attention head 并行运行，并将结果拼接融合</td>
+</tr>
+<tr>
+<td>输入</td>
+<td><strong>Q, K, V</strong></td>
+<td>Query、Key、Value，是 attention 的三类输入表示</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>Attention 输出向量</td>
+<td>对 Value 的加权组合，权重由 Query 与 Key 的相似度决定</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>左侧：Scaled Dot-Product Attention 的结构分析</strong></li>
+<ul>
+<li>左图展示了单个注意力头的完整计算链路。</li>
+<li>输入为：</li>
+<ul>
+<li><strong>Q：Query</strong></li>
+<li><strong>K：Key</strong></li>
+<li><strong>V：Value</strong></li>
+</ul>
+<li>计算流程从下到上依次为：</li>
+<ul>
+<li><strong>Q 与 K 进入 MatMul</strong></li>
+<li>得到相似度矩阵 <strong>QKᵀ</strong></li>
+<li>经过 <strong>Scale</strong></li>
+<li>可选经过 <strong>Mask</strong></li>
+<li>经过 <strong>SoftMax</strong></li>
+<li>得到 attention weights</li>
+<li>attention weights 与 <strong>V</strong> 再次 <strong>MatMul</strong></li>
+<li>输出加权后的表示</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>步骤</th>
+<th>图中模块</th>
+<th>数学形式</th>
+<th>作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>MatMul</strong></td>
+<td><strong>QKᵀ</strong></td>
+<td>计算 Query 与 Key 的相似度</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Scale</strong></td>
+<td><strong>QKᵀ / √dₖ</strong></td>
+<td>缩放点积，避免数值过大</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Mask opt.</strong></td>
+<td>将非法位置置为 <strong>−∞</strong></td>
+<td>用于 decoder 中阻止看到未来 token</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>SoftMax</strong></td>
+<td>softmax(QKᵀ / √dₖ)</td>
+<td>将相似度转为概率分布</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>MatMul</strong></td>
+<td>softmax(...)V</td>
+<td>对 Value 做加权求和</td>
+</tr>
+<tr>
+<td>6</td>
+<td>输出</td>
+<td>Attention(Q,K,V)</td>
+<td>得到上下文相关表示</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Scaled Dot-Product Attention 的核心公式</strong></li>
+<ul>
+<li>图左侧对应论文中的公式：</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>公式</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Attention(Q, K, V) = softmax(QKᵀ / √dₖ)V</strong></td>
+<td>使用 Query 和 Key 计算权重，再对 Value 加权求和</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Q、K、V 的含义</strong></li>
+<ul>
+<li><strong>Query</strong>：当前位置想要查询什么信息。</li>
+<li><strong>Key</strong>：每个位置提供的可匹配索引。</li>
+<li><strong>Value</strong>：每个位置真正携带的信息内容。</li>
+<li>Attention 的本质是：</li>
+<ul>
+<li>用 <strong>Q</strong> 去匹配所有 <strong>K</strong></li>
+<li>根据匹配程度得到权重</li>
+<li>用权重对所有 <strong>V</strong> 求和</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>符号</th>
+<th>英文名称</th>
+<th>直观解释</th>
+<th>在图中的位置</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Q</strong></td>
+<td>Query</td>
+<td>查询向量</td>
+<td>左图底部左侧输入</td>
+</tr>
+<tr>
+<td><strong>K</strong></td>
+<td>Key</td>
+<td>键向量</td>
+<td>左图底部中间输入</td>
+</tr>
+<tr>
+<td><strong>V</strong></td>
+<td>Value</td>
+<td>值向量</td>
+<td>左图底部右侧输入，直接连到最后 MatMul</td>
+</tr>
+<tr>
+<td><strong>dₖ</strong></td>
+<td>Key dimension</td>
+<td>Key 的维度</td>
+<td>Scale 中使用</td>
+</tr>
+<tr>
+<td><strong>√dₖ</strong></td>
+<td>Scaling factor</td>
+<td>缩放因子</td>
+<td>防止 softmax 饱和</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么需要 Scale</strong></li>
+<ul>
+<li>当 <strong>dₖ</strong> 较大时，<strong>QKᵀ</strong> 的数值可能变得很大。</li>
+<li>如果直接进入 <strong>SoftMax</strong>，可能导致分布过于尖锐，使梯度变小。</li>
+<li>因此论文使用 <strong>1 / √dₖ</strong> 缩放点积结果。</li>
+<li>该设计是 Transformer 稳定训练的重要细节。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>问题</th>
+<th>如果不 Scale</th>
+<th>使用 Scale 后</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>点积数值</td>
+<td>可能过大</td>
+<td>数值范围更稳定</td>
+</tr>
+<tr>
+<td>SoftMax 输出</td>
+<td>容易极端化</td>
+<td>分布更平滑</td>
+</tr>
+<tr>
+<td>梯度</td>
+<td>可能很小</td>
+<td>更利于训练</td>
+</tr>
+<tr>
+<td>训练稳定性</td>
+<td>较差</td>
+<td>更好</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Mask opt. 的作用</strong></li>
+<ul>
+<li>图中的 <strong>Mask opt.</strong> 表示可选 masking 操作。</li>
+<li>在 Transformer 的 <strong>decoder self-attention</strong> 中，Mask 非常关键。</li>
+<li>它用于防止当前位置关注未来位置。</li>
+<li>例如预测第 i 个 token 时，只允许模型看到第 1 到第 i 个位置，不能看到第 i+1 之后的 token。</li>
+<li>这保证了 decoder 的 <strong>auto-regressive</strong> 性质。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>使用场景</th>
+<th style="text-align:right">是否需要 Mask</th>
+<th>原因</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Encoder self-attention</strong></td>
+<td style="text-align:right">否</td>
+<td>输入序列可双向关注</td>
+</tr>
+<tr>
+<td><strong>Decoder self-attention</strong></td>
+<td style="text-align:right">是</td>
+<td>防止看到未来 token</td>
+</tr>
+<tr>
+<td><strong>Encoder-decoder attention</strong></td>
+<td style="text-align:right">通常否</td>
+<td>Decoder 可关注完整 source sequence</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>右侧：Multi-Head Attention 的结构分析</strong></li>
+<ul>
+<li>右图展示了多个 <strong>Scaled Dot-Product Attention</strong> 并行运行的机制。</li>
+<li>输入同样是 <strong>Q、K、V</strong>。</li>
+<li>但在进入 attention 之前，Q、K、V 会分别经过多个不同的 <strong>Linear</strong> 投影。</li>
+<li>每组 Linear 投影对应一个 attention head。</li>
+<li>多个 head 并行计算后，将结果 <strong>Concat</strong>。</li>
+<li>最后再经过一个 <strong>Linear</strong> 层，得到最终输出。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>阶段</th>
+<th>图中模块</th>
+<th>作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>输入</td>
+<td><strong>V, K, Q</strong></td>
+<td>原始 Value、Key、Query</td>
+</tr>
+<tr>
+<td>线性投影</td>
+<td><strong>Linear</strong></td>
+<td>将 Q/K/V 投影到不同子空间</td>
+</tr>
+<tr>
+<td>并行注意力</td>
+<td><strong>Scaled Dot-Product Attention × h</strong></td>
+<td>多个 head 同时计算 attention</td>
+</tr>
+<tr>
+<td>拼接</td>
+<td><strong>Concat</strong></td>
+<td>合并所有 heads 的输出</td>
+</tr>
+<tr>
+<td>输出映射</td>
+<td><strong>Linear</strong></td>
+<td>融合多头信息，恢复到 d_model 维度</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Multi-Head Attention 的数学表达</strong></li>
+<ul>
+<li>论文中的表达为：</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>公式</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>MultiHead(Q,K,V) = Concat(head₁,...,headₕ)Wᴼ</strong></td>
+<td>拼接多个 head 后再线性变换</td>
+</tr>
+<tr>
+<td><strong>headᵢ = Attention(QWᵢQ, KWᵢK, VWᵢV)</strong></td>
+<td>每个 head 使用独立投影后的 Q/K/V 计算 attention</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>图中 h 的含义</strong></li>
+<ul>
+<li>右图中标注的 <strong>h</strong> 表示 attention head 的数量。</li>
+<li>在原论文的 base Transformer 中：</li>
+<ul>
+<li><strong>h = 8</strong></li>
+<li><strong>d_model = 512</strong></li>
+<li><strong>dₖ = dᵥ = 64</strong></li>
+</ul>
+<li>也就是说，每个 head 在 64 维子空间中计算 attention，8 个 head 合并后回到 512 维。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>参数</th>
+<th style="text-align:right">Transformer base 设置</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>d_model</strong></td>
+<td style="text-align:right">512</td>
+<td>模型主隐藏维度</td>
+</tr>
+<tr>
+<td><strong>h</strong></td>
+<td style="text-align:right">8</td>
+<td>attention head 数量</td>
+</tr>
+<tr>
+<td><strong>dₖ</strong></td>
+<td style="text-align:right">64</td>
+<td>每个 head 的 Key 维度</td>
+</tr>
+<tr>
+<td><strong>dᵥ</strong></td>
+<td style="text-align:right">64</td>
+<td>每个 head 的 Value 维度</td>
+</tr>
+<tr>
+<td><strong>h × dᵥ</strong></td>
+<td style="text-align:right">512</td>
+<td>多头拼接后的维度</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么需要 Multi-Head Attention</strong></li>
+<ul>
+<li>单个 attention head 只能在一个表示子空间中计算注意力。</li>
+<li><strong>Multi-Head Attention</strong> 允许模型在多个子空间中同时关注不同信息。</li>
+<li>不同 head 可以学习不同关系，例如：</li>
+<ul>
+<li>语法依赖</li>
+<li>长距离依赖</li>
+<li>指代关系</li>
+<li>局部短语结构</li>
+<li>位置关系</li>
+</ul>
+<li>这也是 Transformer 能够替代 RNN 和 CNN 的关键原因之一。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>单头 Attention</th>
+<th>多头 Attention</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>只从一个子空间建模关系</td>
+<td>从多个子空间并行建模关系</td>
+</tr>
+<tr>
+<td>表达能力有限</td>
+<td>表达能力更强</td>
+</tr>
+<tr>
+<td>容易将不同信息平均混合</td>
+<td>不同 head 可分工</td>
+</tr>
+<tr>
+<td>对复杂依赖捕获较弱</td>
+<td>更适合捕获多类型依赖</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>左图与右图的关系</strong></li>
+<ul>
+<li>左图是右图中的基本单元。</li>
+<li>右图中的每一个 attention head 本质上都是一个左图所示的 <strong>Scaled Dot-Product Attention</strong>。</li>
+<li>区别在于：</li>
+<ul>
+<li>左图：单次 attention 计算</li>
+<li>右图：多次 attention 并行计算，再合并输出</li>
+</ul>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>对比项</th>
+<th>Scaled Dot-Product Attention</th>
+<th>Multi-Head Attention</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>图中位置</td>
+<td>左侧</td>
+<td>右侧</td>
+</tr>
+<tr>
+<td>计算数量</td>
+<td>一个 attention</td>
+<td>h 个 attention 并行</td>
+</tr>
+<tr>
+<td>输入</td>
+<td>Q, K, V</td>
+<td>Q, K, V</td>
+</tr>
+<tr>
+<td>是否有 Linear 投影</td>
+<td>图中未显式展示</td>
+<td>显式展示多个 Linear</td>
+</tr>
+<tr>
+<td>输出方式</td>
+<td>加权 Value</td>
+<td>Concat 后再 Linear</td>
+</tr>
+<tr>
+<td>作用层级</td>
+<td>基础计算单元</td>
+<td>Transformer 中实际使用的 attention 模块</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>该图在 Transformer 架构中的位置</strong></li>
+<ul>
+<li><strong>Multi-Head Attention</strong> 被用于 Transformer 的三个地方：</li>
+<ul>
+<li><strong>Encoder self-attention</strong></li>
+<li><strong>Decoder masked self-attention</strong></li>
+<li><strong>Encoder-decoder attention</strong></li>
+</ul>
+<li>图中的 Mask 对应 decoder self-attention 的关键机制。</li>
+<li>图中的多头并行对应 Transformer 高并行性的核心设计。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>Transformer 模块</th>
+<th>Q 来源</th>
+<th>K/V 来源</th>
+<th>是否 Mask</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Encoder self-attention</strong></td>
+<td>Encoder 上一层输出</td>
+<td>Encoder 上一层输出</td>
+<td>否</td>
+</tr>
+<tr>
+<td><strong>Decoder masked self-attention</strong></td>
+<td>Decoder 上一层输出</td>
+<td>Decoder 上一层输出</td>
+<td>是</td>
+</tr>
+<tr>
+<td><strong>Encoder-decoder attention</strong></td>
+<td>Decoder 上一层输出</td>
+<td>Encoder 输出</td>
+<td>否</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>视觉设计解读</strong></li>
+<ul>
+<li>左图采用垂直流水线结构，强调 attention 的顺序计算步骤。</li>
+<li>右图采用并行叠层结构，多个浅灰色重叠模块表示多个 head 同时运行。</li>
+<li><strong>Concat</strong> 和最终 <strong>Linear</strong> 位于顶部，说明多头结果并非简单输出，而是需要进一步融合。</li>
+<li>Q、K、V 在右图底部均先经过 <strong>Linear</strong>，突出不同 head 使用不同投影空间。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>图像元素</th>
+<th>视觉含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>紫色 <strong>MatMul / Attention</strong></td>
+<td>核心矩阵计算</td>
+</tr>
+<tr>
+<td>绿色 <strong>SoftMax</strong></td>
+<td>权重归一化</td>
+</tr>
+<tr>
+<td>黄色 <strong>Scale / Concat</strong></td>
+<td>数值调整或结果合并</td>
+</tr>
+<tr>
+<td>粉色 <strong>Mask opt.</strong></td>
+<td>可选遮蔽机制</td>
+</tr>
+<tr>
+<td>多个重叠模块</td>
+<td>多头并行</td>
+</tr>
+<tr>
+<td>顶部 <strong>Linear</strong></td>
+<td>输出融合</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>核心技术意义</strong></li>
+<ul>
+<li>该图浓缩了 Transformer 的核心创新：</li>
+<ul>
+<li>用 <strong>attention</strong> 替代 recurrence</li>
+<li>用 <strong>parallel heads</strong> 增强表示能力</li>
+<li>用 <strong>scaled dot-product</strong> 提升计算效率与稳定性</li>
+<li>用 <strong>masking</strong> 支持 auto-regressive decoding</li>
+</ul>
+<li>相比 RNN，attention 不需要按时间步串行处理，因此更易并行。</li>
+<li>相比 CNN，self-attention 可以用常数路径长度连接任意两个位置，更利于建模长距离依赖。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>能力</th>
+<th>RNN</th>
+<th>CNN</th>
+<th>Transformer Attention</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>并行训练</td>
+<td>弱</td>
+<td>强</td>
+<td>强</td>
+</tr>
+<tr>
+<td>长距离依赖路径</td>
+<td>长</td>
+<td>取决于层数和卷积核</td>
+<td>短</td>
+</tr>
+<tr>
+<td>全局交互</td>
+<td>间接</td>
+<td>需堆叠层</td>
+<td>直接</td>
+</tr>
+<tr>
+<td>核心操作</td>
+<td>recurrent step</td>
+<td>convolution</td>
+<td>Q/K/V attention</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>总结</strong></li>
+<ul>
+<li>这张图展示了 Transformer 最重要的计算机制。</li>
+<li><strong>Scaled Dot-Product Attention</strong> 负责计算单个注意力分布。</li>
+<li><strong>Multi-Head Attention</strong> 将多个 attention head 并行化，使模型能从不同角度捕获序列内部或输入输出之间的依赖关系。</li>
+<li>图中的 <strong>Scale、Mask、SoftMax、Concat、Linear</strong> 都是 Transformer 成功的关键组成部分。</li>
+<li>该图可以视为理解整篇 <strong>Attention Is All You Need</strong> 的核心入口。</li>
+</ul>
+</ul>
+<h3 id="57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669jpg">57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669.jpg<a class="anchor" href="#57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669jpg">#</a></h3>
+<figure><img src="../images/57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669.jpg" alt="57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像对象</strong>：该图对应论文《Attention Is All You Need》附录中的 <strong>Figure 3</strong>，展示的是 <strong>Transformer encoder self-attention</strong> 的可视化结果。</li>
+</ul>
+<ul>
+<li><strong>图像核心含义</strong>：</li>
+<ul>
+<li>该图展示了 <strong>encoder 第 5 层 / 共 6 层</strong> 中，多个 <strong>attention heads</strong> 在处理单词 <strong>“making”</strong> 时的注意力分布。</li>
+<li>重点说明 Transformer 的 <strong>self-attention</strong> 能够捕捉句子中的 <strong>长距离依赖关系</strong>。</li>
+<li>图中单词 <strong>“making”</strong> 与后文 <strong>“more difficult”</strong> 之间形成明显联系，对应短语结构 <strong>“making ... more difficult”</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>句子内容</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:right">位置</th>
+<th>Token</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td>It</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td>is</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td>in</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td>this</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td>spirit</td>
+</tr>
+<tr>
+<td style="text-align:right">6</td>
+<td>that</td>
+</tr>
+<tr>
+<td style="text-align:right">7</td>
+<td>a</td>
+</tr>
+<tr>
+<td style="text-align:right">8</td>
+<td>majority</td>
+</tr>
+<tr>
+<td style="text-align:right">9</td>
+<td>of</td>
+</tr>
+<tr>
+<td style="text-align:right">10</td>
+<td>American</td>
+</tr>
+<tr>
+<td style="text-align:right">11</td>
+<td>governments</td>
+</tr>
+<tr>
+<td style="text-align:right">12</td>
+<td>have</td>
+</tr>
+<tr>
+<td style="text-align:right">13</td>
+<td>passed</td>
+</tr>
+<tr>
+<td style="text-align:right">14</td>
+<td>new</td>
+</tr>
+<tr>
+<td style="text-align:right">15</td>
+<td>laws</td>
+</tr>
+<tr>
+<td style="text-align:right">16</td>
+<td>since</td>
+</tr>
+<tr>
+<td style="text-align:right">17</td>
+<td>2009</td>
+</tr>
+<tr>
+<td style="text-align:right">18</td>
+<td><strong>making</strong></td>
+</tr>
+<tr>
+<td style="text-align:right">19</td>
+<td>the</td>
+</tr>
+<tr>
+<td style="text-align:right">20</td>
+<td>registration</td>
+</tr>
+<tr>
+<td style="text-align:right">21</td>
+<td>of</td>
+</tr>
+<tr>
+<td style="text-align:right">22</td>
+<td>voting</td>
+</tr>
+<tr>
+<td style="text-align:right">23</td>
+<td>process</td>
+</tr>
+<tr>
+<td style="text-align:right">24</td>
+<td><strong>more</strong></td>
+</tr>
+<tr>
+<td style="text-align:right">25</td>
+<td><strong>difficult</strong></td>
+</tr>
+<tr>
+<td style="text-align:right">26</td>
+<td>.</td>
+</tr>
+<tr>
+<td style="text-align:right">27</td>
+<td><code>&lt;EOS&gt;</code></td>
+</tr>
+<tr>
+<td style="text-align:right">后续</td>
+<td><code>&lt;pad&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>图像结构说明</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>元素</th>
+<th>含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>上方竖排文本</td>
+<td>输入句子的 token 序列</td>
+</tr>
+<tr>
+<td>下方竖排文本</td>
+<td>同一句子的 token 序列，用于显示被 attention 指向的位置</td>
+</tr>
+<tr>
+<td>灰色竖条</td>
+<td>当前被分析的 query token：<strong>“making”</strong></td>
+</tr>
+<tr>
+<td>彩色连线</td>
+<td>不同 <strong>attention heads</strong> 从 <strong>“making”</strong> 指向其他 token 的注意力</td>
+</tr>
+<tr>
+<td>彩色方块</td>
+<td>attention 权重强度，颜色越明显表示注意力越集中</td>
+</tr>
+<tr>
+<td><code>&lt;EOS&gt;</code></td>
+<td>End of Sentence，句子结束符</td>
+</tr>
+<tr>
+<td><code>&lt;pad&gt;</code></td>
+<td>Padding token，用于补齐序列长度</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>最重要的视觉现象</strong>：</li>
+<ul>
+<li>多条彩色 attention 线从 <strong>“making”</strong> 发出，集中指向后文的 <strong>“more”</strong> 和 <strong>“difficult”</strong>。</li>
+<li>这说明模型在编码 <strong>“making”</strong> 时，并不仅依赖邻近词，而是直接关注远处与其构成语义结构的词。</li>
+<li>该行为体现了 Transformer 的关键优势：<strong>任意两个位置之间的依赖路径长度为 O(1)</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>attention heads 的作用分析</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>Attention Head 表现</th>
+<th>可能学习到的功能</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>指向 <strong>“more”</strong></td>
+<td>捕捉比较结构中的程度副词</td>
+</tr>
+<tr>
+<td>指向 <strong>“difficult”</strong></td>
+<td>捕捉 “making ... difficult” 的谓词-补足语关系</td>
+</tr>
+<tr>
+<td>指向标点或 <code>&lt;EOS&gt;</code></td>
+<td>可能用于句法边界或序列结束判断</td>
+</tr>
+<tr>
+<td>指向局部邻近词</td>
+<td>补充局部上下文信息</td>
+</tr>
+<tr>
+<td>多个 head 指向不同位置</td>
+<td>体现 <strong>Multi-Head Attention</strong> 的分工机制</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>语言学关系分析</strong>：</li>
+<ul>
+<li>原句中的关键结构是：</li>
+</ul>
+</ul>
+<p><strong>“laws since 2009 making the registration of voting process more difficult”</strong></p>
+<ul>
+<li>其中 <strong>“making”</strong> 是现在分词，引导结果或修饰结构。</li>
+<li><strong>“more difficult”</strong> 是其语义补足部分。</li>
+<li>因此，<strong>“making” → “more difficult”</strong> 是一个典型的 <strong>long-distance dependency</strong>。</li>
+<li>图中 attention 正好捕捉到了这一结构。</li>
+</ul>
+<ul>
+<li><strong>与 Transformer 机制的对应关系</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>Transformer 机制</th>
+<th>图中体现</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Self-Attention</strong></td>
+<td>“making” 可以直接关注同一句中的任意 token</td>
+</tr>
+<tr>
+<td><strong>Multi-Head Attention</strong></td>
+<td>不同颜色代表不同 heads，各自关注不同位置</td>
+</tr>
+<tr>
+<td><strong>Encoder Representation</strong></td>
+<td>encoder 在生成 “making” 的表示时融合远处上下文</td>
+</tr>
+<tr>
+<td><strong>Long-Range Dependency Modeling</strong></td>
+<td>直接建立 “making” 与 “more difficult” 的联系</td>
+</tr>
+<tr>
+<td><strong>Parallelizable Context Aggregation</strong></td>
+<td>无需 RNN 顺序传播即可获得全局信息</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么该图重要</strong>：</li>
+<ul>
+<li>它直观证明了 Transformer 不依赖 <strong>RNN</strong> 或 <strong>CNN</strong>，也能学习复杂句法与语义关系。</li>
+<li>对比 RNN，长距离信息需要经过多个时间步传播；而在 Transformer 中，<strong>“making” 可以一步 attend 到 “difficult”</strong>。</li>
+<li>对比 CNN，如果卷积核较小，需要多层堆叠才能连接远距离 token；而 self-attention 在单层内即可完成。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中最关键结论</strong>：</li>
+<ul>
+<li><strong>Transformer 的 encoder self-attention 能自动学习句法结构。</strong></li>
+<li><strong>Multi-Head Attention 中的不同 heads 会自发形成分工。</strong></li>
+<li><strong>模型能够捕捉非相邻 token 之间的语义依赖。</strong></li>
+<li><strong>“making” 对 “more difficult” 的关注说明模型理解了结果补足结构。</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文主张的关系</strong>：</li>
+<ul>
+<li>论文第 4 节提出 self-attention 的优势之一是 <strong>maximum path length 为 O(1)</strong>。</li>
+<li>该图提供了可解释性证据：模型确实利用这种短路径机制捕捉远距离依赖。</li>
+<li>图像支持论文结论：<strong>Attention is sufficient for sequence transduction</strong>，即不使用 recurrence 和 convolution 也能建模复杂序列关系。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>可解释性评价</strong>：</li>
+<ul>
+<li>该图不是单纯展示权重，而是在解释模型内部行为。</li>
+<li>它说明 attention heads 并非随机分布，而是可能对应：</li>
+<ul>
+<li><strong>语法依赖</strong></li>
+<li><strong>语义补足</strong></li>
+<li><strong>短语边界</strong></li>
+<li><strong>长距离修饰关系</strong></li>
+</ul>
+<li>因此，该图增强了 Transformer 的 <strong>interpretability</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>局限性说明</strong>：</li>
+<ul>
+<li>attention 权重不能完全等同于因果解释。</li>
+<li>图中只展示了特定 token <strong>“making”</strong> 的 attention，不代表整个模型的全部决策过程。</li>
+<li>该可视化来自单层、单样本，不能直接推广为所有样本中的普遍行为。</li>
+<li>但作为定性证据，它清楚展示了 self-attention 对长距离依赖的捕捉能力。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>一句话总结</strong>：</li>
+<ul>
+<li>这张图展示了 Transformer encoder 中多个 <strong>self-attention heads</strong> 在处理 <strong>“making”</strong> 时，自动关注远处的 <strong>“more difficult”</strong>，说明模型能够通过 <strong>Multi-Head Self-Attention</strong> 高效捕捉长距离句法和语义依赖。</li>
+</ul>
+</ul>
+<h3 id="figure-4-two-attention-heads-also-in-layer-5-of-6-apparently-involved-in-anaphora-resolution-top-full-attentions-for-head-5-bottom-isolated-attentions-from-just-the-word-its-for-attention-heads-5-and-6-note-that-the-attentions-are-very-sharp-for-this-word">Figure 4: Two attention heads, also in layer 5 of 6, apparently involved in anaphora resolution. Top: Full attentions for head 5. Bottom: Isolated attentions from just the word ‘its’ for attention heads 5 and 6. Note that the attentions are very sharp for this word.<a class="anchor" href="#figure-4-two-attention-heads-also-in-layer-5-of-6-apparently-involved-in-anaphora-resolution-top-full-attentions-for-head-5-bottom-isolated-attentions-from-just-the-word-its-for-attention-heads-5-and-6-note-that-the-attentions-are-very-sharp-for-this-word">#</a></h3>
+<figure><img src="../images/1678a839f4e6f07663c6d0c31aa1125d433138f2e6617aae82d039d1529967ea.jpg" alt="1678a839f4e6f07663c6d0c31aa1125d433138f2e6617aae82d039d1529967ea.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像整体含义</strong>：该图是 Transformer 论文附录中的 <strong>Figure 4</strong>，展示了编码器第 <strong>5/6 层 encoder self-attention</strong> 中两个 attention heads 的可视化结果。论文说明认为这两个头“apparently involved in anaphora resolution”，即可能参与了<strong>指代消解</strong>。</li>
+</ul>
+<ul>
+<li><strong>输入句子</strong>：图中可见的句子为：</li>
+</ul>
+<table>
+<thead><tr>
+<th>序列片段</th>
+<th>文本</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>完整句子</td>
+<td><strong>The Law will never be perfect, but its application should be just - this is what we are missing, in my opinion.</strong></td>
+</tr>
+<tr>
+<td>关键短语</td>
+<td><strong>its application</strong></td>
+</tr>
+<tr>
+<td>潜在先行词</td>
+<td><strong>The Law</strong></td>
+</tr>
+<tr>
+<td>指代词</td>
+<td><strong>its</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>核心观察</strong>：图中重点展示了单词 <strong>“its”</strong> 的 attention 行为。<strong>“its” 明显将注意力集中到 “Law” 和 “application” 附近</strong>，这表明模型可能学到了：</li>
+</ul>
+<table>
+<thead><tr>
+<th>被分析词</th>
+<th>主要 attention 目标</th>
+<th>可能语言学功能</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>its</strong></td>
+<td><strong>Law</strong></td>
+<td>识别 possessive pronoun 的先行词</td>
+</tr>
+<tr>
+<td><strong>its</strong></td>
+<td><strong>application</strong></td>
+<td>建立 possessive modifier 与被修饰名词的局部关系</td>
+</tr>
+<tr>
+<td><strong>its application</strong></td>
+<td><strong>Law / application</strong></td>
+<td>建模“法律的应用”这一语义结构</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>上半部分图像含义</strong>：</li>
+<ul>
+<li>上半部分标注为 <strong>Full attentions for head 5</strong>。</li>
+<li>它展示的是 <strong>attention head 5</strong> 在整个句子上的完整 attention 分布。</li>
+<li>每个 token 在上方和下方各出现一次，线条表示一个位置对另一个位置的 attention。</li>
+<li>紫色线条越深、越粗，表示 attention 权重越大。</li>
+<li>可以看到大量浅色连接覆盖全句，但其中有一些非常突出的深色连接。</li>
+<li>这些强连接显示该 head 并不是均匀关注所有 token，而是在某些词之间形成了<strong>稀疏且明确的依赖关系</strong>。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>上半部分的关键模式</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>现象</th>
+<th>解释</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>“its” 附近出现强 attention</strong></td>
+<td>说明该 head 对指代词非常敏感</td>
+</tr>
+<tr>
+<td><strong>“my” 与 “opinion” 附近也有强连接</strong></td>
+<td>可能捕捉 possessive pronoun 与名词之间的关系</td>
+</tr>
+<tr>
+<td><strong>部分词几乎垂直连接自身或邻近词</strong></td>
+<td>可能用于保留局部 token 信息或短距离句法依赖</td>
+</tr>
+<tr>
+<td><strong>跨较长距离连接存在</strong></td>
+<td>self-attention 能直接建立远距离依赖，无需 RNN 式逐步传播</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>下半部分图像含义</strong>：</li>
+<ul>
+<li>下半部分是 <strong>Isolated attentions from just the word “its” for attention heads 5 and 6</strong>。</li>
+<li>它只保留了来自 <strong>“its”</strong> 这个 token 的 attention。</li>
+<li>图中用两种颜色区分两个不同 attention heads：</li>
+<ul>
+<li><strong>紫色</strong>：一个 head 的 attention。</li>
+<li><strong>棕色/灰褐色</strong>：另一个 head 的 attention。</li>
+</ul>
+<li>这部分更清楚地说明：当模型处理 <strong>“its”</strong> 时，不同 heads 会关注不同但互补的词。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>下半部分的主要发现</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>Attention head</th>
+<th>“its” 的主要关注对象</th>
+<th>可能作用</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Head 5</strong></td>
+<td><strong>Law</strong></td>
+<td>找到代词 <strong>its</strong> 的先行词，即 “its” 指代 “The Law”</td>
+</tr>
+<tr>
+<td><strong>Head 6</strong></td>
+<td><strong>application</strong></td>
+<td>捕捉 possessive pronoun 与被修饰名词之间的局部结构</td>
+</tr>
+<tr>
+<td>两者结合</td>
+<td><strong>Law + application</strong></td>
+<td>建立 “its application” = “the application of the Law” 的语义关系</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>为什么这是 anaphora resolution 的例子</strong>：</li>
+<ul>
+<li><strong>Anaphora resolution</strong> 指的是确定代词或指代表达所指向的实体。</li>
+<li>在句子 <strong>“but its application should be just”</strong> 中，<strong>its</strong> 是 possessive pronoun。</li>
+<li>它的先行词不是紧邻词，而是前面的 <strong>The Law</strong>。</li>
+<li>图中 <strong>“its” 对 “Law” 有非常强的 attention</strong>，说明模型可能自动学到了：</li>
+<ul>
+<li><strong>its = Law’s</strong></li>
+<li><strong>its application = application of the Law</strong></li>
+</ul>
+<li>这体现了 Transformer 的 self-attention 能够捕捉非局部语义依赖。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图中“sharp attention”的含义</strong>：</li>
+<ul>
+<li>论文说明中特别指出：<strong>“Note that the attentions are very sharp for this word.”</strong></li>
+<li><strong>Sharp attention</strong> 意味着 attention 权重高度集中在少数 token 上，而不是分散到整个句子。</li>
+<li>对 <strong>“its”</strong> 来说，这种 sharpness 很重要，因为代词通常需要明确找到一个或少数几个候选先行词。</li>
+<li>图中 “its” 的 attention 几乎直接指向 <strong>Law</strong> 和 <strong>application</strong>，因此可解释性较强。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与 Transformer 机制的关系</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th>Transformer 机制</th>
+<th>图中体现</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Self-Attention</strong></td>
+<td>每个 token 可以直接关注句中任意其他 token</td>
+</tr>
+<tr>
+<td><strong>Multi-Head Attention</strong></td>
+<td>不同 heads 学到不同关系，如先行词关系、局部修饰关系</td>
+</tr>
+<tr>
+<td><strong>Long-distance dependency</strong></td>
+<td>“its” 可直接连接到较远处的 “Law”</td>
+</tr>
+<tr>
+<td><strong>Interpretability</strong></td>
+<td>attention pattern 可视化后能观察到类似句法/语义功能</td>
+</tr>
+<tr>
+<td><strong>Parallel dependency modeling</strong></td>
+<td>不依赖 RNN 的顺序传播即可建模跨词关系</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>该图对论文论点的支撑</strong>：</li>
+<ul>
+<li>论文主张 Transformer 的 self-attention 不仅计算高效，还能捕捉长距离依赖。</li>
+<li>Figure 4 提供了直观证据：</li>
+<ul>
+<li><strong>模型能够在没有显式语法标注的情况下学习指代关系</strong>。</li>
+<li><strong>不同 attention heads 自动分工</strong>。</li>
+<li><strong>深层 encoder self-attention 可能形成语义级结构表示</strong>。</li>
+</ul>
+<li>这支持论文中关于 self-attention 可解释性的论述：某些 heads 会表现出与句法、语义结构相关的行为。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>需要注意的限制</strong>：</li>
+<ul>
+<li>该图只能说明 attention pattern 与指代关系高度相关。</li>
+<li>它不能严格证明模型“理解”了指代消解。</li>
+<li>attention 权重是模型内部计算的一部分，但不一定完全等价于因果解释。</li>
+<li>因此更准确的说法是：<strong>该 attention head 显示出类似 anaphora resolution 的行为</strong>，而不是证明模型具备完整的人类式指代理解。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>总结</strong>：</li>
+<ul>
+<li>这张图展示了 Transformer encoder 中某些 attention heads 的可解释行为。</li>
+<li>对单词 <strong>“its”</strong>，模型产生了非常集中的 attention。</li>
+<li>一个 head 强烈关注 <strong>“Law”</strong>，可能用于寻找先行词。</li>
+<li>另一个 head 关注 <strong>“application”</strong>，可能用于建模 possessive phrase 的局部结构。</li>
+<li>图像说明 <strong>Multi-Head Self-Attention</strong> 能够同时捕捉<strong>长距离语义依赖</strong>和<strong>局部句法关系</strong>，是 Transformer 相比 RNN/CNN 架构的重要优势之一。</li>
+</ul>
+</ul>
+<h3 id="b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512jpg">b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512.jpg<a class="anchor" href="#b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512jpg">#</a></h3>
+<figure><img src="../images/b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512.jpg" alt="b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512.jpg" loading="lazy"></figure>
+<ul>
+<li><strong>图像来源与定位</strong></li>
+<ul>
+<li>该图对应论文《Attention Is All You Need》附录中的 <strong>Figure 5</strong>。</li>
+<li>图注说明为：<strong>“Many of the attention heads exhibit behaviour that seems related to the structure of the sentence.”</strong></li>
+<li>该图展示的是 <strong>Transformer encoder self-attention</strong> 中第 <strong>5 层 / 共 6 层</strong> 的两个不同 <strong>attention heads</strong>。</li>
+<li>目的不是展示翻译结果，而是可视化不同 attention head 在同一句子内部学习到的结构性关联。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>图像整体内容</strong></li>
+<ul>
+<li>图中包含上下两个子图：</li>
+<ul>
+<li>上半部分：绿色 attention head。</li>
+<li>下半部分：红色 attention head。</li>
+</ul>
+<li>两个子图都针对同一句输入序列：</li>
+<ul>
+<li><strong>“The Law will never be perfect, but its application should be just - this is what we are missing, in my opinion. &lt;EOS&gt; &lt;pad&gt;”</strong></li>
+</ul>
+<li>每个词在图中出现两行：</li>
+<ul>
+<li>上方一行表示被关注的位置，通常可理解为 <strong>key/value positions</strong>。</li>
+<li>下方一行表示发出 attention 的位置，通常可理解为 <strong>query positions</strong>。</li>
+</ul>
+<li>连线表示某个 token 对另一个 token 的 <strong>attention weight</strong>。</li>
+<li>线越粗、颜色越深，表示 attention 权重越高。</li>
+<li>淡色线表示较弱的 attention 分布。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>视觉结构概览</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>区域</th>
+<th style="text-align:right">颜色</th>
+<th>表示内容</th>
+<th>主要特征</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>上半图</td>
+<td style="text-align:right">绿色</td>
+<td>一个 encoder self-attention head</td>
+<td>连接较分散，存在明显跨词组结构关联</td>
+</tr>
+<tr>
+<td>下半图</td>
+<td style="text-align:right">红色</td>
+<td>另一个 encoder self-attention head</td>
+<td>连线更稀疏、更尖锐，偏向局部或特定结构模式</td>
+</tr>
+<tr>
+<td>上下两行 token</td>
+<td style="text-align:right">黑色文本</td>
+<td>同一句话的 token 序列</td>
+<td>用于展示 query token 到 key token 的关注关系</td>
+</tr>
+<tr>
+<td>深色粗线</td>
+<td style="text-align:right">绿 / 红</td>
+<td>高 attention weight</td>
+<td>表示模型强烈关注的 token 对</td>
+</tr>
+<tr>
+<td>浅色细线</td>
+<td style="text-align:right">淡绿 / 淡红</td>
+<td>低 attention weight</td>
+<td>表示弱相关或背景 attention</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>句子结构分析</strong></li>
+<ul>
+<li>输入句子可拆解为几个语义片段：</li>
+<ul>
+<li><strong>The Law will never be perfect</strong></li>
+<li><strong>but its application should be just</strong></li>
+<li><strong>this is what we are missing</strong></li>
+<li><strong>in my opinion</strong></li>
+</ul>
+<li>句子中包含对比关系：</li>
+<ul>
+<li><strong>Law</strong> 可能不会 <strong>perfect</strong>。</li>
+<li>但 <strong>its application</strong> 应该是 <strong>just</strong>。</li>
+</ul>
+<li>还包含指代关系：</li>
+<ul>
+<li><strong>its</strong> 指向前文的 <strong>Law</strong>。</li>
+</ul>
+<li>还包含评价性短语：</li>
+<ul>
+<li><strong>in my opinion</strong>。</li>
+</ul>
+<li>图像的重点在于：不同 attention head 似乎自动学习到了这些语法、语义或位置结构。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>上半图绿色 attention head 分析</strong></li>
+<ul>
+<li>绿色 head 的连线较多，说明它不是只关注单一局部关系，而是在句子内部建立较丰富的依赖。</li>
+<li>明显可以看到一些 token 有较强的集中关注：</li>
+<ul>
+<li><strong>Law</strong></li>
+<li><strong>application</strong></li>
+<li><strong>missing</strong></li>
+<li><strong>opinion</strong></li>
+<li><strong>&lt;EOS&gt;</strong></li>
+</ul>
+<li>这说明该 head 可能承担的是较复杂的结构整合功能，而不是简单的相邻词复制。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>观察点</th>
+<th>图中现象</th>
+<th>可能含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Law</strong> 附近连线密集</td>
+<td>多个 token 指向或经过 Law</td>
+<td>可能捕捉主语或核心名词</td>
+</tr>
+<tr>
+<td><strong>application</strong> 连线明显</td>
+<td>与 its、should、just 等位置存在强关联</td>
+<td>可能建模名词短语或语义中心</td>
+</tr>
+<tr>
+<td><strong>missing</strong> 出现多条强线</td>
+<td>we、are、what 等附近 token 与其关联</td>
+<td>可能识别谓词中心或从句结构</td>
+</tr>
+<tr>
+<td><strong>opinion</strong> 有明显聚合</td>
+<td>in、my、opinion 形成局部关系</td>
+<td>可能捕捉固定短语结构</td>
+</tr>
+<tr>
+<td><strong>&lt;EOS&gt;</strong> 被关注</td>
+<td>句末 token 与多个位置存在连接</td>
+<td>可能用于边界或句子整体信息汇聚</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>绿色 head 的结构性行为</strong></li>
+<ul>
+<li>绿色 attention head 似乎关注的是 <strong>短语级结构</strong>。</li>
+<li>例如：</li>
+<ul>
+<li><strong>its application should be just</strong> 中，application、should、just 之间有明显联系。</li>
+<li><strong>what we are missing</strong> 中，what、we、are、missing 之间出现集中连接。</li>
+<li><strong>in my opinion</strong> 中，in、my、opinion 之间也存在较强局部模式。</li>
+</ul>
+<li>这表明该 head 可能学习到：</li>
+<ul>
+<li><strong>主谓结构</strong></li>
+<li><strong>名词短语结构</strong></li>
+<li><strong>从句内部依赖</strong></li>
+<li><strong>句末修饰短语</strong></li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>下半图红色 attention head 分析</strong></li>
+<ul>
+<li>红色 head 的连线明显更稀疏、更垂直、更尖锐。</li>
+<li>很多 token 几乎关注自身或附近 token。</li>
+<li>这种模式说明该 head 可能更多承担：</li>
+<ul>
+<li><strong>位置保持</strong></li>
+<li><strong>局部对齐</strong></li>
+<li><strong>token identity preservation</strong></li>
+<li><strong>相邻语法关系捕捉</strong></li>
+</ul>
+<li>与绿色 head 相比，红色 head 更像是一个结构稳定器，而不是全局语义整合器。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th>观察点</th>
+<th>图中现象</th>
+<th>可能含义</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>多数连线接近垂直</td>
+<td>token 多关注自身或相近位置</td>
+<td>保留局部位置信息</td>
+</tr>
+<tr>
+<td><strong>will / never / be / perfect</strong> 有清晰局部线</td>
+<td>早段短语内部依赖明显</td>
+<td>捕捉谓语链或形容词补足关系</td>
+</tr>
+<tr>
+<td><strong>what / missing</strong> 有强连接</td>
+<td>从句关键词之间存在直接关联</td>
+<td>识别疑问/关系结构</td>
+</tr>
+<tr>
+<td><strong>my / opinion</strong> 有明显连接</td>
+<td>固定搭配内部关系突出</td>
+<td>捕捉短语搭配</td>
+</tr>
+<tr>
+<td><strong>&lt;EOS&gt; / &lt;pad&gt;</strong> 有边界连线</td>
+<td>句末特殊 token 被单独处理</td>
+<td>可能学习边界或 padding 行为</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>红色 head 的结构性行为</strong></li>
+<ul>
+<li>红色 head 更接近 <strong>局部句法模式识别器</strong>。</li>
+<li>它可能关注：</li>
+<ul>
+<li>词与自身的对应关系。</li>
+<li>词与相邻功能词的关系。</li>
+<li>固定短语内部连接。</li>
+<li>标点和特殊 token 的边界。</li>
+</ul>
+<li>例如：</li>
+<ul>
+<li><strong>my → opinion</strong> 的连接可能表示所有格短语。</li>
+<li><strong>what → missing</strong> 的连接可能表示从句中的语义核心。</li>
+<li><strong>will / never / be / perfect</strong> 的局部关联可能表示动词短语结构。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>上下两个 attention heads 的对比</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>维度</th>
+<th>绿色 head</th>
+<th>红色 head</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>关注范围</td>
+<td>更全局</td>
+<td>更局部</td>
+</tr>
+<tr>
+<td>连线密度</td>
+<td>较高</td>
+<td>较低</td>
+</tr>
+<tr>
+<td>注意力分布</td>
+<td>较分散但有重点</td>
+<td>更尖锐、更稀疏</td>
+</tr>
+<tr>
+<td>可能功能</td>
+<td>语义整合、短语结构识别</td>
+<td>局部对齐、位置保持、短语内部关系</td>
+</tr>
+<tr>
+<td>对长距离依赖</td>
+<td>更明显</td>
+<td>较弱</td>
+</tr>
+<tr>
+<td>对局部依赖</td>
+<td>有，但不是唯一重点</td>
+<td>更突出</td>
+</tr>
+<tr>
+<td>可解释性</td>
+<td>展示跨短语结构关系</td>
+<td>展示局部句法模式</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>该图体现的 Multi-Head Attention 核心思想</strong></li>
+<ul>
+<li>图像直观说明了 <strong>Multi-Head Attention</strong> 的价值：</li>
+<ul>
+<li>不同 head 可以学习不同类型的关系。</li>
+<li>某些 head 关注长距离语义依赖。</li>
+<li>某些 head 关注局部句法结构。</li>
+<li>某些 head 关注特殊 token 或边界信息。</li>
+</ul>
+<li>如果只有单个 attention head，所有关系会被混合进一个注意力分布中，容易产生平均化问题。</li>
+<li>多头机制允许模型在不同子空间中并行捕捉不同结构。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>与论文主张的关系</strong></li>
+<ul>
+<li>论文在 Section 4 中提到，self-attention 的一个附带优势是可能带来更强的 <strong>interpretability</strong>。</li>
+<li>该图正是对这一点的可视化支持。</li>
+<li>图中不同 head 展现出类似语法或语义结构的行为，说明 Transformer 并非只是进行无结构的加权平均。</li>
+<li>它可以在训练过程中自动形成某种结构敏感性。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>从语法角度看图中可能学习到的关系</strong></li>
+</ul>
+<table>
+<thead><tr>
+<th>句子片段</th>
+<th>可能结构</th>
+<th>图中体现</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>The Law</strong></td>
+<td>名词短语</td>
+<td>Law 被多次关注</td>
+</tr>
+<tr>
+<td><strong>will never be perfect</strong></td>
+<td>动词/系表结构</td>
+<td>will、never、be、perfect 之间存在局部连接</td>
+</tr>
+<tr>
+<td><strong>its application</strong></td>
+<td>指代 + 名词短语</td>
+<td>its、application 附近有强关系</td>
+</tr>
+<tr>
+<td><strong>should be just</strong></td>
+<td>情态动词 + 系表结构</td>
+<td>should、be、just 有结构性连接</td>
+</tr>
+<tr>
+<td><strong>what we are missing</strong></td>
+<td>从句结构</td>
+<td>what、we、are、missing 形成明显区域</td>
+</tr>
+<tr>
+<td><strong>in my opinion</strong></td>
+<td>介词短语 / 插入评价语</td>
+<td>in、my、opinion 有局部集中关注</td>
+</tr>
+<tr>
+<td><strong>&lt;EOS&gt;</strong></td>
+<td>句子结束标记</td>
+<td>与句末或全局信息存在连接</td>
+</tr>
+<tr>
+<td><strong>&lt;pad&gt;</strong></td>
+<td>填充标记</td>
+<td>基本作为边界或占位处理</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>从模型内部机制角度解释</strong></li>
+<ul>
+<li>在 encoder self-attention 中，每个 token 都可以直接关注同一句中的任意 token。</li>
+<li>因此，像 <strong>Law → application</strong>、<strong>what → missing</strong>、<strong>my → opinion</strong> 这样的关系不需要经过 RNN 的逐步传递。</li>
+<li>这正是 Transformer 相比 RNN 的优势之一：</li>
+<ul>
+<li>任意两个 token 的路径长度为 <strong>O(1)</strong>。</li>
+<li>长距离依赖可以直接建模。</li>
+<li>attention 权重可视化后具有一定解释性。</li>
+</ul>
+</ul>
+</ul>
+<ul>
+<li><strong>图像显示的关键结论</strong></li>
+<ul>
+<li><strong>不同 attention heads 学到了不同功能。</strong></li>
+<li><strong>self-attention 可以捕捉句子结构，而不仅是表面词序。</strong></li>
+<li><strong>某些 head 更偏向长距离语义依赖，某些 head 更偏向局部句法模式。</strong></li>
+<li><strong>Multi-Head Attention 缓解了单头 attention 的信息平均化问题。</strong></li>
+<li><strong>Transformer encoder 在无 recurrence、无 convolution 的情况下，仍然能够形成结构化语言表示。</strong></li>
+</ul>
+</ul>
+<ul>
+<li><strong>需要谨慎解读的地方</strong></li>
+<ul>
+<li>attention 可视化不能完全等同于因果解释。</li>
+<li>图中的连线表示模型内部的 attention weight，但不一定说明模型“真正理解”语法。</li>
+<li>不同 head 的功能是从可视化中推断出来的，并非人工显式指定。</li>
+<li>该图更适合作为 <strong>qualitative evidence</strong>，而不是严格的定量证明。</li>
+</ul>
+</ul>
+<ul>
+<li><strong>简要总结</strong></li>
+<ul>
+<li>这张图展示了 Transformer encoder 第 5 层中两个 self-attention heads 的行为。</li>
+<li>绿色 head 更偏向全局和短语级结构整合。</li>
+<li>红色 head 更偏向局部对齐和固定句法模式。</li>
+<li>图像有力支持了论文观点：<strong>Multi-Head Self-Attention 能够在不同表示子空间中自动学习多种语言结构关系</strong>。</li>
+</ul>
+</ul></article>
+    </main>
+    <aside class="toc">
+      <div class="toc-title">目录</div>
+      <a class="toc-level-1" href="#attention-is-all-you-need-图表详解">Attention Is All You Need 图表详解</a>
+<a class="toc-level-3" href="#figure-1-the-transformer---model-architecture">Figure 1: The Transformer - model architecture.</a>
+<a class="toc-level-3" href="#figure-2-left-scaled-dot-product-attention-right-multi-head-attention-consists-of-several-attention-layers-running-in-parallel">Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.</a>
+<a class="toc-level-3" href="#57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669jpg">57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669.jpg</a>
+<a class="toc-level-3" href="#figure-4-two-attention-heads-also-in-layer-5-of-6-apparently-involved-in-anaphora-resolution-top-full-attentions-for-head-5-bottom-isolated-attentions-from-just-the-word-its-for-attention-heads-5-and-6-note-that-the-attentions-are-very-sharp-for-this-word">Figure 4: Two attention heads, also in layer 5 of 6, apparently involved in anaphora resolution. Top: Full attentions for head 5. Bottom: Isolated attentions from just the word ‘its’ for attention heads 5 and 6. Note that the attentions are very sharp for this word.</a>
+<a class="toc-level-3" href="#b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512jpg">b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512.jpg</a>
+    </aside>
+  </div>
+</body>
+</html>

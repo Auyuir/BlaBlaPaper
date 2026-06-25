@@ -1,0 +1,1461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attention Is All You Need 论文解析 - BlaBlaCutter</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --sidebar: #0f172a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  line-height: 1.72;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 28px;
+  color: #fff;
+  background: var(--sidebar);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .12);
+}
+.brand {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-title {
+  overflow: hidden;
+  color: #cbd5e1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 0;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.sidebar,
+.toc {
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 28px 18px;
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: #fff;
+}
+.toc {
+  border-left: 1px solid var(--line);
+  background: #fff;
+}
+.nav-link,
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-link {
+  margin-bottom: 4px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.nav-link:hover,
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.toc-title {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.toc a {
+  padding: 5px 0;
+  font-size: 13px;
+}
+.toc a:hover { color: var(--accent); }
+.toc-level-3 { padding-left: 16px !important; }
+.content {
+  min-width: 0;
+  padding: 36px 48px 80px;
+}
+article {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 44px 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+h1, h2, h3, h4, h5, h6 {
+  position: relative;
+  line-height: 1.28;
+  scroll-margin-top: 76px;
+}
+h1 {
+  margin-top: 0;
+  font-size: 30px;
+}
+h2 {
+  margin-top: 42px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 24px;
+}
+h3 { margin-top: 30px; font-size: 20px; }
+h4 { margin-top: 24px; font-size: 17px; }
+.anchor {
+  margin-left: 8px;
+  color: #94a3b8;
+  font-size: .72em;
+  text-decoration: none;
+  opacity: 0;
+}
+h1:hover .anchor,
+h2:hover .anchor,
+h3:hover .anchor,
+h4:hover .anchor { opacity: 1; }
+p { margin: 14px 0; }
+ul, ol { padding-left: 1.35em; }
+li { margin: 5px 0; }
+a { color: var(--accent); }
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  font-size: .92em;
+}
+pre {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+pre code { padding: 0; background: transparent; color: inherit; }
+figure {
+  margin: 24px 0;
+  text-align: center;
+}
+figure img,
+p img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  font-size: 14px;
+  overflow-x: auto;
+  display: block;
+}
+table th, table td {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+table tbody tr:hover {
+  background: var(--accent-soft);
+}
+figure em {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.index {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 56px 28px;
+}
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.report-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+.report-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+}
+.report-card span {
+  display: block;
+  font-weight: 700;
+}
+	.report-card small {
+	  color: var(--muted);
+	}
+	.paper-card p {
+	  margin: 10px 0 0;
+	  color: var(--muted);
+	  font-size: 14px;
+	  line-height: 1.55;
+	}
+	.muted { color: var(--muted); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 190px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 760px) {
+  .topbar { padding: 0 16px; }
+  .layout { display: block; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 12px;
+  }
+  .content { padding: 20px 12px 48px; }
+  article { padding: 24px 18px 40px; }
+  h1 { font-size: 25px; }
+  h2 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">BlaBlaCutter</a>
+    <span class="page-title">Attention Is All You Need 论文解析</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav>
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link active" href="../paper_notes/index.html">论文解析</a>
+<a class="nav-link" href="../eli5_notes/index.html">通俗讲解</a>
+<a class="nav-link" href="../figs_notes/index.html">图表详解</a>
+<a class="nav-link" href="../translation_notes/index.html">原文翻译</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <article><h1 id="attention-is-all-you-need-论文解析">Attention Is All You Need 论文解析<a class="anchor" href="#attention-is-all-you-need-论文解析">#</a></h1>
+<h2 id="0-论文基本信息">0. 论文基本信息<a class="anchor" href="#0-论文基本信息">#</a></h2>
+<p><strong>作者 (Authors)</strong>: Ashish Vaswani, Noam Shazeer, Niki Parmar, et al.</p>
+<p><strong>发表期刊/会议 (Journal/Conference)</strong>: NeurIPS</p>
+<p><strong>发表年份 (Publication Year)</strong>: 2017</p>
+<p><strong>研究机构 (Affiliations)</strong>: Google Brain, Google Research, University of Toronto</p>
+<hr>
+<h2 id="1-摘要">1. 摘要<a class="anchor" href="#1-摘要">#</a></h2>
+<p><strong>目的</strong></p>
+<ul>
+<li>提出全新的神经网络架构 <strong>Transformer</strong>，完全基于 <strong>Attention</strong> 机制，彻底摒弃传统的 <strong>RNN</strong> 和 <strong>CNN</strong> 结构。</li>
+<li>解决传统 <strong>RNN</strong> 模型固有的顺序计算瓶颈，大幅提升模型训练的并行化能力。</li>
+<li>缩短网络中长距离依赖的路径长度，降低计算复杂度，从而显著减少训练时间并提升序列转导任务的质量。</li>
+</ul>
+<hr>
+<p><strong>方法</strong></p>
+<ul>
+<li>整体采用 <strong>Encoder-Decoder</strong> 架构，两侧均由 $N=6$ 个相同的层堆叠而成。</li>
+<li><strong>Encoder</strong> 结构：</li>
+<ul>
+<li>每层包含两个子层：<strong>Multi-Head Self-Attention</strong> 和 <strong>Position-wise Feed-Forward Network</strong>。</li>
+<li>每个子层均使用 <strong>Residual Connection</strong> 和 <strong>Layer Normalization</strong>。</li>
+</ul>
+<li><strong>Decoder</strong> 结构：</li>
+<ul>
+<li>在 Encoder 的两个子层基础上，插入第三个子层用于执行 <strong>Encoder-Decoder Attention</strong>。</li>
+<li><strong>Self-Attention</strong> 子层引入 <strong>Masking</strong> 机制，防止当前位置关注后续位置，确保自回归特性。</li>
+</ul>
+<li><strong>Scaled Dot-Product Attention</strong>：</li>
+<ul>
+<li>计算 Query 与 Key 的点积，除以 $\sqrt{d_k}$ 进行缩放，再通过 <strong>Softmax</strong> 计算权重。</li>
+<li>公式：$Attention(Q, K, V) = softmax(\frac{QK^T}{\sqrt{d_k}})V$。</li>
+</ul>
+<li><strong>Multi-Head Attention</strong>：</li>
+<ul>
+<li>将 Q, K, V 通过不同的线性投影映射到 $h=8$ 个子空间并行计算 Attention。</li>
+<li>将结果 Concat 后再次进行线性投影，使模型能同时关注不同表示子空间的信息。</li>
+</ul>
+<li><strong>Positional Encoding</strong>：</li>
+<ul>
+<li>使用不同频率的 <strong>Sine</strong> 和 <strong>Cosine</strong> 函数生成位置编码，与 <strong>Embedding</strong> 相加，为无序模型注入序列位置信息。</li>
+</ul>
+<li>模型架构图：</li>
+</ul>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<hr>
+<p><strong>结果</strong></p>
+<ul>
+<li><strong>机器翻译任务</strong>：</li>
+<ul>
+<li>在 WMT 2014 English-to-German 任务中，<strong>Transformer (big)</strong> 取得 <strong>28.4 BLEU</strong>，超越当时最佳集成模型 <strong>2.0 BLEU</strong> 以上。</li>
+<li>在 WMT 2014 English-to-French 任务中，创下单模型 SOTA 记录 <strong>41.8 BLEU</strong>，训练成本仅为当时最佳模型的 <strong>1/4</strong>。</li>
+<li>训练耗时：在 8 个 NVIDIA P100 GPU 上仅需 <strong>3.5 天</strong>。</li>
+</ul>
+<li>性能与计算成本对比：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:left">Model</th>
+<th style="text-align:left">EN-DE BLEU</th>
+<th style="text-align:left">EN-FR BLEU</th>
+<th style="text-align:left">EN-DE Training Cost (FLOPs)</th>
+<th style="text-align:left">EN-FR Training Cost (FLOPs)</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">ConvS2S Ensemble</td>
+<td style="text-align:left">26.36</td>
+<td style="text-align:left">41.29</td>
+<td style="text-align:left">$7.7 \cdot 10^{19}$</td>
+<td style="text-align:left">$1.2 \cdot 10^{21}$</td>
+</tr>
+<tr>
+<td style="text-align:left">GNMT + RL Ensemble</td>
+<td style="text-align:left">26.30</td>
+<td style="text-align:left">41.16</td>
+<td style="text-align:left">$1.8 \cdot 10^{20}$</td>
+<td style="text-align:left">$1.1 \cdot 10^{21}$</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (base)</strong></td>
+<td style="text-align:left">27.3</td>
+<td style="text-align:left">38.1</td>
+<td style="text-align:left"><strong>$3.3 \cdot 10^{18}$</strong></td>
+<td style="text-align:left">-</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (big)</strong></td>
+<td style="text-align:left"><strong>28.4</strong></td>
+<td style="text-align:left"><strong>41.8</strong></td>
+<td style="text-align:left">$2.3 \cdot 10^{19}$</td>
+<td style="text-align:left">-</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>English Constituency Parsing</strong>：</li>
+<ul>
+<li>在 Wall Street Journal (WSJ) 数据集上，<strong>Transformer (4 layers)</strong> 取得 <strong>91.3 F1</strong> 分数，超越 BerkeleyParser。</li>
+<li>在半监督设置下达到 <strong>92.1 F1</strong>，证明模型具备强大的跨任务泛化能力。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>结论</strong></p>
+<ul>
+<li><strong>Transformer</strong> 是首个完全依赖 <strong>Attention</strong> 的序列转导模型，成功替代了传统的 <strong>RNN</strong> 和 <strong>CNN</strong> 层。</li>
+<li>相比传统架构，<strong>Transformer</strong> 训练速度显著提升，并在多项机器翻译任务中达到 SOTA。</li>
+<li>模型不仅限于文本任务，未来可扩展至图像、音频、视频等模态。</li>
+<li>未来研究方向包括探索局部受限的 <strong>Attention</strong> 机制以高效处理大尺度输入输出，以及减少生成过程的顺序依赖。</li>
+</ul>
+<hr>
+<h2 id="2-背景知识与核心贡献">2. 背景知识与核心贡献<a class="anchor" href="#2-背景知识与核心贡献">#</a></h2>
+<p><strong>研究背景</strong></p>
+<ul>
+<li>主导序列转换模型（如机器翻译）主要依赖复杂的 <strong>RNN</strong> 或 <strong>CNN</strong>，包含 <strong>Encoder</strong> 和 <strong>Decoder</strong> 结构。</li>
+<li>表现最优的模型通常通过 <strong>Attention</strong> 机制连接 <strong>Encoder</strong> 和 <strong>Decoder</strong>。</li>
+<li><strong>Self-attention</strong>（自注意力）机制已在阅读理解、文本摘要等任务中取得初步成功。</li>
+</ul>
+<p><strong>研究动机</strong></p>
+<ul>
+<li><strong>RNN 的固有限制</strong>：计算沿输入输出序列的符号位置逐步进行，生成隐藏状态 $h_t$ 依赖前一状态 $h_{t-1}$。这种序列化特性阻碍了训练样本内部的并行化计算，在长序列下内存限制进一步影响 batching 效率。</li>
+<li><strong>CNN 的远距离依赖问题</strong>：基于卷积的模型（如 ConvS2S, ByteNet）关联远距离位置的操作数随距离线性或对数增长，增加了学习长距离依赖的难度。</li>
+<li>现有 <strong>Attention</strong> 机制多与 <strong>RNN</strong> 结合使用，未能彻底解决序列计算的瓶颈。</li>
+</ul>
+<p><strong>核心贡献</strong></p>
+<ul>
+<li>提出 <strong>Transformer</strong> 架构：完全摒弃 <strong>RNN</strong> 和 <strong>CNN</strong>，仅依赖 <strong>Attention</strong> 机制（特别是 <strong>Self-attention</strong>）来提取输入输出间的全局依赖关系。</li>
+<li>设计核心组件：</li>
+<ul>
+<li><strong>Scaled Dot-Product Attention</strong>：通过缩放因子 $\frac{1}{\sqrt{d_k}}$ 解决高维下 softmax 梯度消失问题。</li>
+<li><strong>Multi-Head Attention</strong>：将 Query、Key、Value 投影到不同子空间并行计算，增强模型捕捉不同表征子空间信息的能力。</li>
+</ul>
+<li>极高的并行化能力与训练效率：在 8 个 P100 GPU 上仅需 3.5 天即可完成大模型训练。</li>
+</ul>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<ul>
+<li>在机器翻译任务上刷新 SOTA 记录：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:left">任务</th>
+<th style="text-align:left">模型</th>
+<th style="text-align:left">BLEU 分数</th>
+<th style="text-align:left">训练成本</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">WMT 2014 English-to-German</td>
+<td style="text-align:left"><strong>Transformer (big)</strong></td>
+<td style="text-align:left"><strong>28.4</strong></td>
+<td style="text-align:left">3.5天 (8 P100 GPUs)</td>
+</tr>
+<tr>
+<td style="text-align:left">WMT 2014 English-to-French</td>
+<td style="text-align:left"><strong>Transformer (big)</strong></td>
+<td style="text-align:left"><strong>41.8</strong></td>
+<td style="text-align:left">远低于文献最优模型</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>强大的泛化能力：在 English constituency parsing 任务中，无论数据量大小，均表现出色，甚至超越特定任务调优的 RNN 序列模型。</li>
+</ul>
+<hr>
+<h2 id="3-核心技术和实现细节">3. 核心技术和实现细节<a class="anchor" href="#3-核心技术和实现细节">#</a></h2>
+<h3 id="0-技术架构概览">0. 技术架构概览<a class="anchor" href="#0-技术架构概览">#</a></h3>
+<p><strong>核心架构概述</strong></p>
+<ul>
+<li><strong>Transformer</strong> 是一种基于 <strong>Encoder-Decoder</strong> 架构的序列转换模型。</li>
+<li>完全摒弃了传统的 <strong>RNN</strong> 和 <strong>CNN</strong> 结构，<strong>仅依赖 Attention 机制</strong>处理输入和输出序列间的全局依赖关系。</li>
+<li>允许高度并行化计算，显著减少训练时间。</li>
+</ul>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<hr>
+<p><strong>Encoder 结构</strong></p>
+<ul>
+<li>由 <strong>N=6</strong> 个相同的层堆叠而成。</li>
+<li>每层包含两个核心 Sub-layer：</li>
+<ul>
+<li><strong>Multi-Head Self-Attention</strong> 机制。</li>
+<li><strong>Position-wise Feed-Forward Network</strong> (FFN)。</li>
+</ul>
+<li>每个 Sub-layer 均采用 <strong>Residual Connection</strong> 和 <strong>Layer Normalization</strong>，公式为 $LayerNorm(x + Sublayer(x))$。</li>
+<li>所有 Sub-layer 及 Embedding 层的输出维度均为 <strong>$d_{model} = 512$</strong>。</li>
+</ul>
+<hr>
+<p><strong>Decoder 结构</strong></p>
+<ul>
+<li>同样由 <strong>N=6</strong> 个相同的层堆叠而成。</li>
+<li>每层包含三个 Sub-layer：</li>
+<ul>
+<li><strong>Masked Multi-Head Self-Attention</strong>：通过 Masking 防止当前位置关注后续位置，确保位置 $i$ 的预测仅依赖于位置小于 $i$ 的已知输出，维持 <strong>Auto-regressive</strong> 特性。</li>
+<li><strong>Encoder-Decoder Attention</strong>：Query 来自前一 Decoder 层，Key 和 Value 来自 Encoder 输出，实现解码器对编码器全局信息的提取。</li>
+<li><strong>Position-wise Feed-Forward Network</strong> (FFN)。</li>
+</ul>
+<li>同样应用 <strong>Residual Connection</strong> 和 <strong>Layer Normalization</strong>。</li>
+</ul>
+<hr>
+<p><strong>核心组件：Attention 机制</strong></p>
+<ul>
+<li><strong>Scaled Dot-Product Attention</strong>：</li>
+<ul>
+<li>输入为 Query (Q)、Key (K) 和 Value (V)。</li>
+<li>计算公式：$Attention(Q, K, V) = softmax(\frac{QK^T}{\sqrt{d_k}})V$。</li>
+<li>引入缩放因子 <strong>$\frac{1}{\sqrt{d_k}}$</strong> 抵消大维度下点积过大导致的 Softmax 梯度消失问题。</li>
+</ul>
+<li><strong>Multi-Head Attention</strong>：</li>
+<ul>
+<li>将 Q、K、V 通过线性投影映射到 <strong>h=8</strong> 个不同的表示子空间并行计算。</li>
+<li>每个头的维度 <strong>$d_k = d_v = d_{model}/h = 64$</strong>。</li>
+<li>将各头结果 Concat 后再次进行线性投影，使模型能联合关注不同位置的不同表示子空间信息。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>Positional Encoding</strong></p>
+<ul>
+<li>由于模型无 RNN/CNN，需额外注入序列的绝对或相对位置信息。</li>
+<li>采用不同频率的 <strong>Sine</strong> 和 <strong>Cosine</strong> 函数生成位置编码：</li>
+<ul>
+<li>$PE_{(pos, 2i)} = sin(pos / 10000^{2i/d_{model}})$</li>
+<li>$PE_{(pos, 2i+1)} = cos(pos / 10000^{2i/d_{model}})$</li>
+</ul>
+<li>位置编码与 Embedding 维度相同，直接相加注入模型，使模型能轻松学习相对位置关系。</li>
+</ul>
+<hr>
+<p><strong>模型基础参数规格</strong></p>
+<table>
+<thead><tr>
+<th>参数</th>
+<th>值</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>层数 (N)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>模型维度 ($d_{model}$)</td>
+<td>512</td>
+</tr>
+<tr>
+<td>前馈网络维度 ($d_{ff}$)</td>
+<td>2048</td>
+</tr>
+<tr>
+<td>Attention 头数 (h)</td>
+<td>8</td>
+</tr>
+<tr>
+<td>每头维度 ($d_k, d_v$)</td>
+<td>64</td>
+</tr>
+<tr>
+<td>Dropout 概率 ($P_{drop}$)</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>Label Smoothing ($\epsilon_{ls}$)</td>
+<td>0.1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1-scaled-dot-product-attention">1. Scaled Dot-Product Attention<a class="anchor" href="#1-scaled-dot-product-attention">#</a></h3>
+<p><strong>核心概念与原理</strong></p>
+<ul>
+<li><strong>Scaled Dot-Product Attention</strong> 是一种将 <strong>Query</strong> 和一组 <strong>Key-Value</strong> 对映射到输出的注意力机制。</li>
+<li>输出是对 <strong>Values</strong> 的加权求和。</li>
+<li>权重通过 Query 与对应 Key 的兼容性函数计算得出。</li>
+</ul>
+<figure><img src="../images/da0cb167628b8c102175cfb8905c35ca892193b2792f27c2ecc67f25752338a5.jpg" alt="" loading="lazy"> <em>Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.</em></figure>
+<hr>
+<p><strong>算法流程与公式</strong></p>
+<ul>
+<li>计算点积：Query 与所有 Keys 进行点积运算。</li>
+<li>缩放处理：每个点积结果除以 $\sqrt{d_k}$。</li>
+<li>归一化：应用 <strong>softmax</strong> 函数将结果转化为概率分布，获得权重。</li>
+<li>加权求和：将权重与对应的 Values 相乘并求和，得到最终输出。</li>
+<li>核心公式：$Attention(Q, K, V) = softmax(\frac{QK^T}{\sqrt{d_k}})V$</li>
+</ul>
+<hr>
+<p><strong>参数设置与矩阵化实现</strong></p>
+<ul>
+<li><strong>Queries</strong> 和 <strong>Keys</strong> 的维度设为 $d_k$。</li>
+<li><strong>Values</strong> 的维度设为 $d_v$。</li>
+<li>并行计算：将多个 Queries 打包为矩阵 $Q$，Keys 和 Values 打包为矩阵 $K$ 和 $V$。</li>
+<li>利用高度优化的矩阵乘法代码实现并行计算，提升速度和空间效率。</li>
+</ul>
+<hr>
+<p><strong>缩放因子的必要性</strong></p>
+<ul>
+<li>当 $d_k$ 较小时，Dot-Product Attention 与 Additive Attention 性能相当。</li>
+<li>当 $d_k$ 较大时，点积结果数值幅度变大，将 softmax 函数推入梯度极小的区域。</li>
+<li>除以 $\sqrt{d_k}$ 抵消大数值效应，防止梯度消失，稳定训练过程。</li>
+</ul>
+<hr>
+<p><strong>输入输出关系与整体作用</strong></p>
+<ul>
+<li>输入：矩阵 $Q$ (Queries)、$K$ (Keys)、$V$ (Values)。</li>
+<li>输出：维度为 $d_v$ 的注意力加权表示矩阵。</li>
+<li>在 Transformer 中的作用：</li>
+<ul>
+<li>作为 <strong>Multi-Head Attention</strong> 的基础并行计算单元。</li>
+<li>在 <strong>Encoder-Decoder Attention</strong> 中，Query 来自前一层 Decoder，Key 和 Value 来自 Encoder 输出，实现跨序列交互。</li>
+<li>在 <strong>Self-Attention</strong> 中，Q, K, V 均来自同一序列的前一层输出，捕获序列内部的全局依赖关系。</li>
+<li>在 Decoder 的 Self-Attention 中，通过 Masking 机制屏蔽后续位置，保证自回归特性。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>对比分析</strong></p>
+<table>
+<thead><tr>
+<th style="text-align:left">特性</th>
+<th style="text-align:left">Scaled Dot-Product Attention</th>
+<th style="text-align:left">Additive Attention</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>兼容性计算</strong></td>
+<td style="text-align:left">矩阵点积</td>
+<td style="text-align:left">单隐藏层前馈网络</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>计算速度</strong></td>
+<td style="text-align:left">快 (基于矩阵乘法优化)</td>
+<td style="text-align:left">较慢</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>空间效率</strong></td>
+<td style="text-align:left">高</td>
+<td style="text-align:left">较低</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>大 $d_k$ 表现</strong></td>
+<td style="text-align:left">需缩放因子，否则性能下降</td>
+<td style="text-align:left">表现稳定</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-multi-head-attention">2. Multi-Head Attention<a class="anchor" href="#2-multi-head-attention">#</a></h3>
+<p><strong>核心观点</strong></p>
+<ul>
+<li><strong>Multi-Head Attention</strong> 打破了单头注意力机制的限制，允许模型在不同的位置联合关注来自不同表示子空间的信息。</li>
+<li>单一注意力头通过平均化操作会抑制模型捕捉多样化特征的能力，而多头机制通过并行投影有效缓解了这一问题。</li>
+</ul>
+<hr>
+<p><strong>实现原理与算法流程</strong></p>
+<ul>
+<li><strong>线性投影</strong>：不直接在 $d_{\text{model}}$ 维度上执行单一 Attention，而是将 <strong>Query</strong>、<strong>Key</strong> 和 <strong>Value</strong> 分别使用不同的学习参数矩阵线性投影 $h$ 次。</li>
+<li><strong>并行计算</strong>：在每个投影后的子空间中并行执行 <strong>Scaled Dot-Product Attention</strong>，产生 $h$ 个维度为 $d_v$ 的输出。</li>
+<li><strong>特征拼接</strong>：将这 $h$ 个注意力头的输出在特征维度上进行 <strong>Concat</strong> 操作。</li>
+<li><strong>最终线性映射</strong>：将拼接后的结果乘以输出权重矩阵 $W^O$，得到最终的注意力输出。</li>
+<li><strong>公式表达</strong>：</li>
+<ul>
+<li>$\text{MultiHead}(Q, K, V) = \text{Concat}(\text{head}_1, ..., \text{head}_h) W^O$</li>
+<li>$\text{head}_i = \text{Attention}(Q W_i^Q, K W_i^K, V W_i^V)$</li>
+</ul>
+</ul>
+<figure><img src="../images/da0cb167628b8c102175cfb8905c35ca892193b2792f27c2ecc67f25752338a5.jpg" alt="" loading="lazy"> <em>Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.</em></figure>
+<hr>
+<p><strong>参数设置与维度计算</strong></p>
+<ul>
+<li>论文中采用 $h = 8$ 个并行注意力头。</li>
+<li>每个头的维度设为 $d_k = d_v = d_{\text{model}} / h = 64$。</li>
+<li>由于每个头的维度降低，多头机制的总计算成本与单头全维度 Attention 基本一致。</li>
+<li><strong>核心参数矩阵维度</strong>：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:left">参数矩阵</th>
+<th style="text-align:left">维度</th>
+<th style="text-align:left">说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">$W_i^Q$</td>
+<td style="text-align:left">$\mathbb{R}^{d_{\text{model}} \times d_k}$</td>
+<td style="text-align:left">Query 的第 $i$ 个投影矩阵</td>
+</tr>
+<tr>
+<td style="text-align:left">$W_i^K$</td>
+<td style="text-align:left">$\mathbb{R}^{d_{\text{model}} \times d_k}$</td>
+<td style="text-align:left">Key 的第 $i$ 个投影矩阵</td>
+</tr>
+<tr>
+<td style="text-align:left">$W_i^V$</td>
+<td style="text-align:left">$\mathbb{R}^{d_{\text{model}} \times d_v}$</td>
+<td style="text-align:left">Value 的第 $i$ 个投影矩阵</td>
+</tr>
+<tr>
+<td style="text-align:left">$W^O$</td>
+<td style="text-align:left">$\mathbb{R}^{h d_v \times d_{\text{model}}}$</td>
+<td style="text-align:left">最终输出的线性映射矩阵</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>输入输出关系</strong></p>
+<ul>
+<li><strong>输入</strong>：统一的 <strong>Query</strong> ($Q$)、<strong>Key</strong> ($K$) 和 <strong>Value</strong> ($V$) 矩阵，基础维度均为 $d_{\text{model}} = 512$。</li>
+<li><strong>中间态</strong>：$h$ 组维度为 $64$ 的子空间注意力输出。</li>
+<li><strong>输出</strong>：维度为 $d_{\text{model}} = 512$ 的融合表示矩阵，直接传递给后续的 Feed-Forward Network 或下一层 Encoder/Decoder。</li>
+</ul>
+<hr>
+<p><strong>在整体架构中的作用</strong></p>
+<ul>
+<li><strong>Encoder-Decoder Attention</strong>：</li>
+<ul>
+<li><strong>Query</strong> 来自前一个 Decoder 层的输出。</li>
+<li><strong>Key</strong> 和 <strong>Value</strong> 来自 Encoder 堆栈的最终输出。</li>
+<li>作用：使 Decoder 的每个位置都能关注到输入序列的所有位置。</li>
+</ul>
+<li><strong>Encoder Self-Attention</strong>：</li>
+<ul>
+<li><strong>Query</strong>、<strong>Key</strong>、<strong>Value</strong> 均来自前一 Encoder 层的输出。</li>
+<li>作用：允许 Encoder 中的每个位置关注前一层的所有位置，捕捉全局依赖。</li>
+</ul>
+<li><strong>Decoder Self-Attention</strong>：</li>
+<ul>
+<li><strong>Query</strong>、<strong>Key</strong>、<strong>Value</strong> 均来自前一 Decoder 层的输出。</li>
+<li>作用：允许 Decoder 关注当前位置及之前的位置。</li>
+<li>特殊机制：引入 <strong>Masking</strong> 操作，将 softmax 输入中对应非法连接（未来位置）的值设为 $-\infty$，确保自回归特性，防止向左信息流。</li>
+</ul>
+</ul>
+<h3 id="3-positional-encoding">3. Positional Encoding<a class="anchor" href="#3-positional-encoding">#</a></h3>
+<p><strong>核心动机与整体作用</strong></p>
+<ul>
+<li>Transformer 架构完全摒弃了 RNN 和 CNN，这种设计虽然带来了极高的并行化能力，但也导致模型本身失去了捕捉序列顺序的能力。</li>
+<li>为了使模型能够利用序列的顺序信息，必须在输入端注入 token 的相对或绝对位置信息。</li>
+<li>Positional Encoding 与 Input Embedding 具有相同的维度（<strong>$d_{model} = 512$</strong>），两者直接相加，将语义信息与位置信息融合后作为 encoder 和 decoder 堆栈底部的输入。</li>
+</ul>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<hr>
+<p><strong>实现原理与算法流程</strong></p>
+<ul>
+<li>论文采用不同频率的 sine 和 cosine 函数来生成固定的 Positional Encoding，而非通过训练学习的参数。</li>
+<li>具体的数学公式如下：</li>
+<ul>
+<li>$PE_{(pos, 2i)} = sin(pos / 10000^{2i / d_{model}})$</li>
+<li>$PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$</li>
+</ul>
+<li>公式参数说明：</li>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:left">参数</th>
+<th style="text-align:left">含义</th>
+<th style="text-align:left">说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>pos</strong></td>
+<td style="text-align:left">Position</td>
+<td style="text-align:left">token 在序列中的绝对位置，取值范围为 $[0, L-1]$</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>i</strong></td>
+<td style="text-align:left">Dimension</td>
+<td style="text-align:left">维度的索引，取值范围为 $[0, d_{model}/2 - 1]$</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>$d_{model}$</strong></td>
+<td style="text-align:left">Model Dimension</td>
+<td style="text-align:left">模型隐藏层维度，本文设定为 <strong>512</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>波长特性：每个维度对应一个正弦波，波长的范围形成从 $2\pi$ 到 $10000 \cdot 2\pi$ 的几何级数。</li>
+<li>算法流程：</li>
+<ul>
+<li>针对输入序列的每个位置 <strong>pos</strong>，计算其对应的正弦和余弦值。</li>
+<li>偶数维度使用 sin 函数计算，奇数维度使用 cos 函数计算。</li>
+<li>生成一个与 Input Embedding 形状完全一致的 Positional Encoding 矩阵。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>输入输出关系</strong></p>
+<ul>
+<li>输入：</li>
+<ul>
+<li>Input Embedding：通过查表得到的 token 语义向量表示，维度为 $[L, d_{model}]$。</li>
+<li>Positional Encoding：根据位置公式计算出的位置向量表示，维度为 $[L, d_{model}]$。</li>
+</ul>
+<li>处理：执行逐元素相加操作（$Embedding + PE$）。</li>
+<li>输出：融合了语义与位置信息的最终输入向量，维度保持 $[L, d_{model}]$ 不变，直接送入后续的 Multi-Head Attention 层。</li>
+</ul>
+<hr>
+<p><strong>设计优势与实验对比</strong></p>
+<ul>
+<li>相对位置表达能力：作者假设这种正弦/余弦形式能让模型轻松学习到相对位置信息。因为对于任何固定的偏移量 $k$，$PE_{pos+k}$ 都可以表示为 $PE_{pos}$ 的线性函数。</li>
+<li>长度外推能力：由于正弦和余弦函数的连续性，模型在理论上可以处理比训练时遇到的序列长度更长的输入。</li>
+<li>实验验证：</li>
+<ul>
+<li>论文在 Table 3 的 row (E) 中对比了 learned positional embeddings。</li>
+<li>实验结果表明，learned 版本与 sinusoidal 版本产生了几乎相同的结果。</li>
+<li>最终选择 sinusoidal 版本的核心考量在于其对未知长度的外推潜力。</li>
+</ul>
+</ul>
+<h3 id="4-position-wise-feed-forward-networks">4. Position-wise Feed-Forward Networks<a class="anchor" href="#4-position-wise-feed-forward-networks">#</a></h3>
+<p><strong>核心概念与原理</strong></p>
+<ul>
+<li>Position-wise Feed-Forward Networks (FFN) 是 Transformer 架构中 Encoder 和 Decoder 的核心组件之一。</li>
+<li><strong>Position-wise</strong> 意味着该网络对输入序列的每个 position 独立且相同地处理。</li>
+<li>该模块不涉及跨 position 的信息交互，序列中各 token 的特征提取完全并行。</li>
+<li>结构上等价于两个 kernel size 为 1 的卷积层。</li>
+</ul>
+<hr>
+<p><strong>算法流程与公式</strong></p>
+<ul>
+<li>FFN 由两次 Linear Transformation 和一个非线性激活函数组成。</li>
+<li>核心计算公式为：</li>
+<ul>
+<li><strong>FFN(x) = max(0, xW₁ + b₁)W₂ + b₂</strong></li>
+</ul>
+<li>算法步骤拆解：</li>
+<ul>
+<li><strong>第一层映射</strong>：输入向量 x 乘以权重矩阵 <strong>W₁</strong> 并加上偏置 <strong>b₁</strong>，将维度从 <strong>d_model</strong> 映射到 <strong>d_ff</strong>。</li>
+<li><strong>非线性激活</strong>：通过 <strong>ReLU</strong> 激活函数 (max(0, ·)) 引入非线性能力。</li>
+<li><strong>第二层映射</strong>：将激活后的结果乘以权重矩阵 <strong>W₂</strong> 并加上偏置 <strong>b₂</strong>，将维度从 <strong>d_ff</strong> 恢复为 <strong>d_model</strong>。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>参数设置与维度变换</strong></p>
+<ul>
+<li>输入与输出维度保持一致，确保残差连接 的顺利进行。</li>
+<li>内部隐藏层维度 <strong>d_ff</strong> 通常远大于模型维度 <strong>d_model</strong>，形成先升维、后降维的瓶颈结构，以提取更高维度的特征表达。</li>
+<li>参数共享特性：</li>
+<ul>
+<li>同一层内，所有 position 共享相同的 <strong>W₁, b₁, W₂, b₂</strong> 参数。</li>
+<li>不同层之间（例如 Encoder 的第1层与第2层），FFN 的参数完全独立。</li>
+</ul>
+</ul>
+<table>
+<thead><tr>
+<th style="text-align:left">组件</th>
+<th style="text-align:left">输入维度</th>
+<th style="text-align:left">权重矩阵维度</th>
+<th style="text-align:left">输出维度</th>
+<th style="text-align:left">激活函数</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">第一层 Linear</td>
+<td style="text-align:left"><strong>d_model</strong> (512)</td>
+<td style="text-align:left"><strong>d_model × d_ff</strong> (512×2048)</td>
+<td style="text-align:left"><strong>d_ff</strong> (2048)</td>
+<td style="text-align:left"><strong>ReLU</strong></td>
+</tr>
+<tr>
+<td style="text-align:left">第二层 Linear</td>
+<td style="text-align:left"><strong>d_ff</strong> (2048)</td>
+<td style="text-align:left"><strong>d_ff × d_model</strong> (2048×512)</td>
+<td style="text-align:left"><strong>d_model</strong> (512)</td>
+<td style="text-align:left">无</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>在整体架构中的作用</strong></p>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<ul>
+<li><strong>输入输出关系</strong>：</li>
+<ul>
+<li>接收上一个子层（Multi-Head Attention 或 Masked Multi-Head Attention）经过残差连接和 LayerNorm 处理后的输出。</li>
+<li>输出维度相同的特征矩阵，继续传递给下一个残差连接和 LayerNorm 模块。</li>
+</ul>
+<li><strong>功能定位</strong>：</li>
+<ul>
+<li><strong>Attention 机制</strong>负责捕捉序列中 token 之间的全局依赖关系（跨 position 交互）。</li>
+<li><strong>FFN</strong> 负责对每个 position 的特征向量进行深度非线性变换，增强模型的表征能力。</li>
+<li>两者交替堆叠，使得 Transformer 既能理解上下文语境，又能提取丰富的局部特征。</li>
+</ul>
+</ul>
+<h3 id="5-residual-connection-and-layer-normalization">5. Residual Connection and Layer Normalization<a class="anchor" href="#5-residual-connection-and-layer-normalization">#</a></h3>
+<p><strong>核心概念解析</strong></p>
+<ul>
+<li><strong>Residual Connection</strong>（残差连接）：借鉴自 ResNet 的核心思想，通过建立跨层的直接连接，允许梯度在反向传播时绕过非线性变换层，直接流向网络底层。</li>
+<li><strong>Layer Normalization</strong>（层归一化）：对同一个样本的所有特征维度进行均值为0、方差为1的标准化处理，独立于 batch size，有效稳定深层网络的训练过程。</li>
+</ul>
+<hr>
+<p><strong>算法流程与数学表达</strong></p>
+<p>在 Transformer 的每一个 Sub-layer（包括 Multi-Head Attention 和 Feed-Forward Network）中，数据流转严格遵循以下顺序：</p>
+<ul>
+<li><strong>输入接收</strong>：接收上一层的输出向量 $x$。</li>
+<li><strong>Sub-layer 计算</strong>：将 $x$ 送入当前 Sub-layer 执行核心运算，得到中间输出 $Sublayer(x)$。</li>
+<li><strong>残差相加</strong>：将原始输入 $x$ 与 Sub-layer 的输出进行逐元素相加，公式为 $x + Sublayer(x)$。</li>
+<li><strong>层归一化</strong>：对相加后的结果应用 Layer Normalization，最终输出表达式为：</li>
+<ul>
+<li>$Output = LayerNorm(x + Sublayer(x))$</li>
+</ul>
+</ul>
+<p>在模型架构图（Figure 1）中，这一组合操作被直观地标记为 <strong>Add &amp; Norm</strong> 模块。</p>
+<figure><img src="../images/f7896a22ff43c1f81531754bb9c3f1e738ea4cf8f64eb0a2e62ca12ec9f973de.jpg" alt="" loading="lazy"> <em>Figure 1: The Transformer - model architecture.</em></figure>
+<hr>
+<p><strong>参数设置与维度约束</strong></p>
+<p>为了确保残差连接中的逐元素加法（$x + Sublayer(x)$）在数学上成立，模型对内部特征维度进行了严格的统一约束：</p>
+<table>
+<thead><tr>
+<th style="text-align:left">组件名称</th>
+<th style="text-align:left">维度参数</th>
+<th style="text-align:left">说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>Embedding 层</strong></td>
+<td style="text-align:left">$d_{model} = 512$</td>
+<td style="text-align:left">输入序列转换为连续表示的基准维度</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Encoder Sub-layers</strong></td>
+<td style="text-align:left">$d_{model} = 512$</td>
+<td style="text-align:left">Multi-Head Attention 与 FFN 的输出维度</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Decoder Sub-layers</strong></td>
+<td style="text-align:left">$d_{model} = 512$</td>
+<td style="text-align:left">Masked Attention 与 Cross-Attention 的输出维度</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Add &amp; Norm 输入/输出</strong></td>
+<td style="text-align:left">$d_{model} = 512$</td>
+<td style="text-align:left">保证 $x$ 与 $Sublayer(x)$ 维度一致</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>所有 Sub-layer 以及 Embedding 层的输出维度均被强制设为 <strong>$d_{model} = 512$</strong>。</li>
+<li>这种统一的维度设计避免了引入额外的投影矩阵，简化了网络结构并降低了计算开销。</li>
+</ul>
+<hr>
+<p><strong>输入输出关系及在整体中的作用</strong></p>
+<p><strong>输入输出关系</strong></p>
+<ul>
+<li><strong>输入</strong>：前一层的输出张量 $x$（维度为 $[batch\_size, seq\_len, d_{model}]$）。</li>
+<li><strong>输出</strong>：经过归一化的同维度张量 $Output$（维度保持为 $[batch\_size, seq\_len, d_{model}]$）。</li>
+<li><strong>特性</strong>：无论 Sub-layer 内部（如 Attention 矩阵计算或 FFN 的 2048 维扩展）如何复杂，<strong>Add &amp; Norm</strong> 模块始终维持输入输出张量的形状和维度不变。</li>
+</ul>
+<p><strong>在整体架构中的作用</strong></p>
+<ul>
+<li><strong>支撑深层堆叠</strong>：Transformer 的 Encoder 和 Decoder 各自堆叠了 $N=6$ 个相同的层。Residual Connection 确保了信息能够无损地穿透 6 层结构，避免了深层网络中的梯度消失和退化问题。</li>
+<li><strong>稳定训练过程</strong>：Self-Attention 机制对输入向量的尺度极其敏感。Layer Normalization 将激活值的分布稳定在合理范围内，防止 Softmax 函数进入梯度极小的饱和区，使得模型能够使用较大的学习率进行快速收敛。</li>
+<li><strong>保留位置信息</strong>：由于 Transformer 完全摒弃了 RNN，序列的顺序信息仅由 Positional Encoding 提供。残差连接确保了底层的 Positional Encoding 信号能够直接传递到高层的 Attention 计算中，防止位置信息在网络加深时被稀释或覆盖。</li>
+</ul>
+<hr>
+<h2 id="4-实验方法与实验结果">4. 实验方法与实验结果<a class="anchor" href="#4-实验方法与实验结果">#</a></h2>
+<p><strong>实验设置</strong></p>
+<ul>
+<li><strong>训练数据</strong>：</li>
+<ul>
+<li><strong>WMT 2014 English-German</strong>：包含约 <strong>450万</strong> 句子对，使用 byte-pair encoding，共享词表大小约 <strong>37,000</strong> tokens。</li>
+<li><strong>WMT 2014 English-French</strong>：包含 <strong>3600万</strong> 句子对，word-piece 词表大小为 <strong>32,000</strong> tokens。</li>
+<li><strong>Batching 策略</strong>：按近似序列长度分批，每个 training batch 包含约 <strong>25,000</strong> 个 source tokens 和 <strong>25,000</strong> 个 target tokens。</li>
+</ul>
+<li><strong>硬件与耗时</strong>：</li>
+<ul>
+<li>硬件配置：单机搭载 <strong>8 张 NVIDIA P100 GPUs</strong>。</li>
+<li><strong>Base model</strong>：训练 <strong>100,000</strong> 步，耗时约 <strong>12 小时</strong>（单步约 0.4 秒）。</li>
+<li><strong>Big model</strong>：训练 <strong>300,000</strong> 步，耗时约 <strong>3.5 天</strong>（单步约 1.0 秒）。</li>
+</ul>
+<li><strong>优化器与学习率</strong>：</li>
+<ul>
+<li>采用 <strong>Adam optimizer</strong>，参数设为 $\beta_1 = 0.9$, $\beta_2 = 0.98$, $\epsilon = 10^{-9}$。</li>
+<li>学习率调度公式：$lrate = d_{model}^{-0.5} \cdot \min(step\_num^{-0.5}, step\_num \cdot warmup\_steps^{-1.5})$。</li>
+<li><strong>Warmup 阶段</strong>：前 <strong>4,000</strong> 步线性增加学习率，之后按步数倒数的平方根比例衰减。</li>
+</ul>
+<li><strong>正则化策略</strong>：</li>
+<ul>
+<li><strong>Residual Dropout</strong>：应用于每个 sub-layer 的输出及其输入相加之前，以及 encoder 和 decoder 中的 embeddings 与 positional encodings 之和。Base model 的 dropout 率为 <strong>$P_{drop} = 0.1$</strong>。</li>
+<li><strong>Label Smoothing</strong>：设值为 <strong>$\epsilon_{ls} = 0.1$</strong>。此策略会略微损害 perplexity，但能提升 accuracy 和 BLEU score。</li>
+</ul>
+<li><strong>推理设置</strong>：</li>
+<ul>
+<li>Base model 平均最后 <strong>5 个</strong> checkpoints（每 10 分钟保存一次），Big model 平均最后 <strong>20 个</strong> checkpoints。</li>
+<li>解码采用 <strong>Beam search</strong>，beam size 为 <strong>4</strong>，length penalty $\alpha = 0.6$。</li>
+<li>最大输出长度设为输入长度 + 50，并在可能时提前终止。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>机器翻译结果数据</strong></p>
+<p>在 WMT 2014 翻译任务中，Transformer 展现了压倒性的性能优势与极低的训练成本。</p>
+<table>
+<thead><tr>
+<th style="text-align:left">Model</th>
+<th style="text-align:left">EN-DE BLEU</th>
+<th style="text-align:left">EN-FR BLEU</th>
+<th style="text-align:left">EN-DE Training Cost (FLOPs)</th>
+<th style="text-align:left">EN-FR Training Cost (FLOPs)</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">ByteNet</td>
+<td style="text-align:left">23.75</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">-</td>
+</tr>
+<tr>
+<td style="text-align:left">Deep-Att + PosUnk</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">39.2</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">$1.0 \cdot 10^{20}$</td>
+</tr>
+<tr>
+<td style="text-align:left">GNMT + RL</td>
+<td style="text-align:left">24.6</td>
+<td style="text-align:left">39.92</td>
+<td style="text-align:left">$2.3 \cdot 10^{19}$</td>
+<td style="text-align:left">$1.4 \cdot 10^{20}$</td>
+</tr>
+<tr>
+<td style="text-align:left">ConvS2S</td>
+<td style="text-align:left">25.16</td>
+<td style="text-align:left">40.46</td>
+<td style="text-align:left">$9.6 \cdot 10^{18}$</td>
+<td style="text-align:left">$1.5 \cdot 10^{20}$</td>
+</tr>
+<tr>
+<td style="text-align:left">MoE</td>
+<td style="text-align:left">26.03</td>
+<td style="text-align:left">40.56</td>
+<td style="text-align:left">$2.0 \cdot 10^{19}$</td>
+<td style="text-align:left">$1.2 \cdot 10^{20}$</td>
+</tr>
+<tr>
+<td style="text-align:left">GNMT + RL Ensemble</td>
+<td style="text-align:left">26.30</td>
+<td style="text-align:left">41.16</td>
+<td style="text-align:left">$1.8 \cdot 10^{20}$</td>
+<td style="text-align:left">$1.1 \cdot 10^{21}$</td>
+</tr>
+<tr>
+<td style="text-align:left">ConvS2S Ensemble</td>
+<td style="text-align:left">26.36</td>
+<td style="text-align:left">41.29</td>
+<td style="text-align:left">$7.7 \cdot 10^{19}$</td>
+<td style="text-align:left">$1.2 \cdot 10^{21}$</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (base model)</strong></td>
+<td style="text-align:left"><strong>27.3</strong></td>
+<td style="text-align:left"><strong>38.1</strong></td>
+<td style="text-align:left"><strong>$3.3 \cdot 10^{18}$</strong></td>
+<td style="text-align:left">-</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (big)</strong></td>
+<td style="text-align:left"><strong>28.4</strong></td>
+<td style="text-align:left"><strong>41.8</strong></td>
+<td style="text-align:left"><strong>$2.3 \cdot 10^{19}$</strong></td>
+<td style="text-align:left">-</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>English-to-German 任务</strong>：<strong>Transformer (big)</strong> 取得 <strong>28.4 BLEU</strong>，超越此前最佳模型（包含集成模型）<strong>2.0 BLEU</strong> 以上。即使是 base model 也以极低的计算成本超越了所有此前的单模型甚至集成模型。</li>
+<li><strong>English-to-French 任务</strong>：<strong>Transformer (big)</strong> 取得 <strong>41.8 BLEU</strong>，确立了新的单模型 SOTA，且训练成本不到此前最佳模型的 <strong>1/4</strong>。</li>
+</ul>
+<hr>
+<p><strong>成分句法分析结果数据</strong></p>
+<p>为验证模型的泛化能力，论文在 Wall Street Journal (WSJ) 数据集上进行了 English constituency parsing 实验。</p>
+<table>
+<thead><tr>
+<th style="text-align:left">Parser</th>
+<th style="text-align:left">Training Setting</th>
+<th style="text-align:left">WSJ 23 F1</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left">Vinyals &amp; Kaiser el al. (2014)</td>
+<td style="text-align:left">WSJ only, discriminative</td>
+<td style="text-align:left">88.3</td>
+</tr>
+<tr>
+<td style="text-align:left">Petrov et al. (2006)</td>
+<td style="text-align:left">WSJ only, discriminative</td>
+<td style="text-align:left">90.4</td>
+</tr>
+<tr>
+<td style="text-align:left">Zhu et al. (2013)</td>
+<td style="text-align:left">WSJ only, discriminative</td>
+<td style="text-align:left">90.4</td>
+</tr>
+<tr>
+<td style="text-align:left">Dyer et al. (2016)</td>
+<td style="text-align:left">WSJ only, discriminative</td>
+<td style="text-align:left">91.7</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (4 layers)</strong></td>
+<td style="text-align:left"><strong>WSJ only, discriminative</strong></td>
+<td style="text-align:left"><strong>91.3</strong></td>
+</tr>
+<tr>
+<td style="text-align:left">Zhu et al. (2013)</td>
+<td style="text-align:left">semi-supervised</td>
+<td style="text-align:left">91.3</td>
+</tr>
+<tr>
+<td style="text-align:left">Huang &amp; Harper (2009)</td>
+<td style="text-align:left">semi-supervised</td>
+<td style="text-align:left">91.3</td>
+</tr>
+<tr>
+<td style="text-align:left">McCloskey et al. (2006)</td>
+<td style="text-align:left">semi-supervised</td>
+<td style="text-align:left">92.1</td>
+</tr>
+<tr>
+<td style="text-align:left">Vinyals &amp; Kaiser el al. (2014)</td>
+<td style="text-align:left">semi-supervised</td>
+<td style="text-align:left">92.1</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>Transformer (4 layers)</strong></td>
+<td style="text-align:left"><strong>semi-supervised</strong></td>
+<td style="text-align:left"><strong>92.1</strong></td>
+</tr>
+<tr>
+<td style="text-align:left">Luong et al. (2015)</td>
+<td style="text-align:left">semi-supervised multi-task</td>
+<td style="text-align:left">92.7</td>
+</tr>
+<tr>
+<td style="text-align:left">Dyer et al. (2016)</td>
+<td style="text-align:left">generative</td>
+<td style="text-align:left">93.0</td>
+</tr>
+<tr>
+<td style="text-align:left">Dyer et al. (2016)</td>
+<td style="text-align:left">generative</td>
+<td style="text-align:left">93.3</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>使用 4 层 Transformer（$d_{model} = 1024$），在仅使用 WSJ 40K 句子训练时，达到 <strong>91.3 F1</strong>，超越了此前的 BerkeleyParser。</li>
+<li>在半监督设置下（17M 句子），达到 <strong>92.1 F1</strong>。</li>
+<li>尽管缺乏任务特定的调优，Transformer 表现出极强的跨任务泛化能力。</li>
+</ul>
+<hr>
+<p><strong>消融实验</strong></p>
+<p>以 base model 在 newstest2013 (EN-DE dev) 上的表现为基准，通过控制变量评估各组件的重要性。</p>
+<table>
+<thead><tr>
+<th style="text-align:left">变体</th>
+<th style="text-align:left">N</th>
+<th style="text-align:left">$d_{model}$</th>
+<th style="text-align:left">$d_{ff}$</th>
+<th style="text-align:left">h</th>
+<th style="text-align:left">$d_k$</th>
+<th style="text-align:left">$d_v$</th>
+<th style="text-align:left">$P_{drop}$</th>
+<th style="text-align:left">$\epsilon_{ls}$</th>
+<th style="text-align:left">train steps</th>
+<th style="text-align:left">PPL (dev)</th>
+<th style="text-align:left">BLEU (dev)</th>
+<th style="text-align:left">params ($\times 10^6$)</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>base</strong></td>
+<td style="text-align:left">6</td>
+<td style="text-align:left">512</td>
+<td style="text-align:left">2048</td>
+<td style="text-align:left">8</td>
+<td style="text-align:left">64</td>
+<td style="text-align:left">64</td>
+<td style="text-align:left">0.1</td>
+<td style="text-align:left">0.1</td>
+<td style="text-align:left">100K</td>
+<td style="text-align:left">4.92</td>
+<td style="text-align:left">25.8</td>
+<td style="text-align:left">65</td>
+</tr>
+<tr>
+<td style="text-align:left">(A)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">1</td>
+<td style="text-align:left">512</td>
+<td style="text-align:left">512</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.29</td>
+<td style="text-align:left">24.9</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(A)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4</td>
+<td style="text-align:left">128</td>
+<td style="text-align:left">128</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.00</td>
+<td style="text-align:left">25.5</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(A)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">16</td>
+<td style="text-align:left">32</td>
+<td style="text-align:left">32</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.91</td>
+<td style="text-align:left">25.8</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(A)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">32</td>
+<td style="text-align:left">16</td>
+<td style="text-align:left">16</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.01</td>
+<td style="text-align:left">25.4</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(B)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">16</td>
+<td style="text-align:left">16</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.16</td>
+<td style="text-align:left">25.1</td>
+<td style="text-align:left">58</td>
+</tr>
+<tr>
+<td style="text-align:left">(B)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">32</td>
+<td style="text-align:left">32</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.01</td>
+<td style="text-align:left">25.4</td>
+<td style="text-align:left">60</td>
+</tr>
+<tr>
+<td style="text-align:left">(C)</td>
+<td style="text-align:left">2</td>
+<td style="text-align:left">256</td>
+<td style="text-align:left">1024</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">32</td>
+<td style="text-align:left">32</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">6.11</td>
+<td style="text-align:left">23.7</td>
+<td style="text-align:left">36</td>
+</tr>
+<tr>
+<td style="text-align:left">(C)</td>
+<td style="text-align:left">4</td>
+<td style="text-align:left">256</td>
+<td style="text-align:left">1024</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">32</td>
+<td style="text-align:left">32</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.19</td>
+<td style="text-align:left">25.3</td>
+<td style="text-align:left">50</td>
+</tr>
+<tr>
+<td style="text-align:left">(C)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">1024</td>
+<td style="text-align:left">4096</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">128</td>
+<td style="text-align:left">128</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.88</td>
+<td style="text-align:left">25.5</td>
+<td style="text-align:left">80</td>
+</tr>
+<tr>
+<td style="text-align:left">(C)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">1024</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">64</td>
+<td style="text-align:left">64</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.75</td>
+<td style="text-align:left">24.5</td>
+<td style="text-align:left">168</td>
+</tr>
+<tr>
+<td style="text-align:left">(D)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">0.0</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.75</td>
+<td style="text-align:left">26.2</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(D)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">0.2</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">5.77</td>
+<td style="text-align:left">24.6</td>
+<td style="text-align:left">90</td>
+</tr>
+<tr>
+<td style="text-align:left">(D)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">0.0</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.95</td>
+<td style="text-align:left">25.5</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(D)</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">0.2</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.67</td>
+<td style="text-align:left">25.7</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">(E)</td>
+<td style="text-align:left">\multicolumn{6}{l}{positional embedding instead of sinusoids}</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">4.92</td>
+<td style="text-align:left">25.7</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>big</strong></td>
+<td style="text-align:left">6</td>
+<td style="text-align:left">1024</td>
+<td style="text-align:left">4096</td>
+<td style="text-align:left">16</td>
+<td style="text-align:left"></td>
+<td style="text-align:left"></td>
+<td style="text-align:left">0.3</td>
+<td style="text-align:left"></td>
+<td style="text-align:left">300K</td>
+<td style="text-align:left">4.33</td>
+<td style="text-align:left">26.4</td>
+<td style="text-align:left">213</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Multi-Head Attention 的影响 (变体 A)</strong>：</li>
+<ul>
+<li>保持计算量不变，改变 head 数量 $h$。</li>
+<li>单头注意力比最佳设置差 <strong>0.9 BLEU</strong>。</li>
+<li>head 数量过多（如 32）也会导致质量下降。</li>
+<li>结论：合适的 head 数量能让模型在不同表示子空间联合关注信息，多头机制至关重要。</li>
+</ul>
+<li><strong>Attention Key Size 的影响 (变体 B)</strong>：</li>
+<ul>
+<li>减小 $d_k$ 会显著损害模型质量。</li>
+<li>结论：判断 compatibility 需要足够的维度，说明 dot product 可能并非总是最优的 compatibility function，更复杂的函数或许有益。</li>
+</ul>
+<li><strong>模型规模的影响 (变体 C)</strong>：</li>
+<ul>
+<li>增大模型维度（$d_{model}$ 从 512 增至 1024）和层数能提升性能。</li>
+<li>替换 $d_{ff}$ 会降低效果。</li>
+<li>结论：更大的模型表现更好。</li>
+</ul>
+<li><strong>正则化的影响 (变体 D)</strong>：</li>
+<ul>
+<li>移除 Dropout ($P_{drop} = 0.0$) 会导致过拟合，BLEU 略有上升但 PPL 显著恶化。</li>
+<li>调整 Label Smoothing 参数表明，适度的 smoothing ($\epsilon_{ls} = 0.1$) 能在 PPL 和 BLEU 间取得最佳平衡。</li>
+</ul>
+<li><strong>Positional Encoding 的选择 (变体 E)</strong>：</li>
+<ul>
+<li>使用 learned positional embeddings 替代 sinusoidal 版本，结果几乎一致。</li>
+<li>论文最终采用 sinusoidal 版本，因其具备外推到比训练时更长序列的潜力。</li>
+</ul>
+</ul>
+<hr>
+<p><strong>注意力可视化分析</strong></p>
+<p>论文通过可视化 encoder self-attention 的权重分布，证明了 Transformer 不仅性能强，且具备一定的可解释性。</p>
+<figure><img src="../images/57e3ad00e7c57fe0dc66b468b013f2fcf447ef78a7d2ee01be8b434fe6ef0669.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li><strong>长距离依赖捕捉</strong>：在 Layer 5 的 self-attention 中，针对动词 &quot;making&quot; 的注意力头清晰地关注到了远处的 &quot;more difficult&quot;，成功学习了 &quot;making...more difficult&quot; 的句法结构。</li>
+</ul>
+<figure><img src="../images/1678a839f4e6f07663c6d0c31aa1125d433138f2e6617aae82d039d1529967ea.jpg" alt="" loading="lazy"> <em>Figure 4: Two attention heads, also in layer 5 of 6, apparently involved in anaphora resolution. Top: Full attentions for head 5. Bottom: Isolated attentions from just the word ‘its’ for attention heads 5 and 6. Note that the attentions are very sharp for this word.</em></figure>
+<ul>
+<li><strong>指代消解</strong>：某些注意力头学会了执行 anaphora resolution。对于单词 &quot;its&quot;，注意力头 5 和 6 展现出了极其尖锐的注意力分布，准确指向了其指代的名词。</li>
+</ul>
+<figure><img src="../images/b616696f63c30ad27de5f095b0cac5975742209d1231c70057510010187c1512.jpg" alt="" loading="lazy"></figure>
+<ul>
+<li><strong>句法结构学习</strong>：不同的注意力头展现出了明显不同的行为模式，某些头的行为与句子的语法结构高度相关，表明模型能够自发学习到潜在的语法规则。</li>
+</ul>
+<hr></article>
+    </main>
+    <aside class="toc">
+      <div class="toc-title">目录</div>
+      <a class="toc-level-1" href="#attention-is-all-you-need-论文解析">Attention Is All You Need 论文解析</a>
+<a class="toc-level-2" href="#0-论文基本信息">0. 论文基本信息</a>
+<a class="toc-level-2" href="#1-摘要">1. 摘要</a>
+<a class="toc-level-2" href="#2-背景知识与核心贡献">2. 背景知识与核心贡献</a>
+<a class="toc-level-2" href="#3-核心技术和实现细节">3. 核心技术和实现细节</a>
+<a class="toc-level-3" href="#0-技术架构概览">0. 技术架构概览</a>
+<a class="toc-level-3" href="#1-scaled-dot-product-attention">1. Scaled Dot-Product Attention</a>
+<a class="toc-level-3" href="#2-multi-head-attention">2. Multi-Head Attention</a>
+<a class="toc-level-3" href="#3-positional-encoding">3. Positional Encoding</a>
+<a class="toc-level-3" href="#4-position-wise-feed-forward-networks">4. Position-wise Feed-Forward Networks</a>
+<a class="toc-level-3" href="#5-residual-connection-and-layer-normalization">5. Residual Connection and Layer Normalization</a>
+<a class="toc-level-2" href="#4-实验方法与实验结果">4. 实验方法与实验结果</a>
+    </aside>
+  </div>
+</body>
+</html>

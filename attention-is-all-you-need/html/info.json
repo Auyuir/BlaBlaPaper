@@ -1,0 +1,21 @@
+{
+  "index": "attention-is-all-you-need",
+  "paper_title": "Attention Is All You Need",
+  "metadata": {
+    "authors": [
+      "Ashish Vaswani",
+      "Noam Shazeer",
+      "Niki Parmar",
+      "et al."
+    ],
+    "affiliations": [
+      "Google Brain",
+      "Google Research",
+      "University of Toronto"
+    ],
+    "venue": "NeurIPS",
+    "year": 2017,
+    "doi": null
+  },
+  "description": "本文提出了Transformer，一种完全基于注意力机制的网络架构，摒弃了循环和卷积，解决了循环模型的序列计算限制，实现了高度并行化。核心技术包括多头自注意力机制和位置编码。在WMT 2014英德翻译任务上达到28.4 BLEU（提升超2 BLEU），英法任务达41.8 BLEU，且训练成本大幅降低（8个GPU训练3.5天）。"
+}
