@@ -76,6 +76,13 @@ def write_translation_report(output_dir, title, content, filename="translation_n
         f.write(content or "")
 
 
+def remove_partial_report(output_dir, basename):
+    """最终稿写完后，删除对应的 *.partial.md 中间文件（崩溃兜底用，定稿后冗余）。"""
+    partial = os.path.join(output_dir, f"{basename}.partial.md")
+    if os.path.exists(partial):
+        os.remove(partial)
+
+
 def is_existing_report_dir(path):
     """判断目录是否是已经生成过的 BlaBlaCutter 输出目录。"""
     return os.path.isdir(path) and any(
@@ -383,6 +390,7 @@ def main():
         write_paper_report(OUTPUT_DIR, main_title, results)
 
         write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
+        remove_partial_report(OUTPUT_DIR, "paper_notes")
         log("✅ 主报告已保存")
 
         write_progress(OUTPUT_DIR, "eli5")
@@ -398,6 +406,7 @@ def main():
         eli5_title = f"{main_title} 通俗讲解"
         write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content)
         write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content, filename="ELI5_notes.md")
+        remove_partial_report(OUTPUT_DIR, "ELI5_notes")
         log("✅ 通俗解释报告已保存: ELI5_notes.md")
 
         # 原文翻译：基于 MinerU 原文 md 逐段翻译，保留图片/公式/结构，走文本供应商。
@@ -411,6 +420,7 @@ def main():
         translation_title = f"{main_title} 原文翻译"
         write_translation_report(OUTPUT_DIR, translation_title, translation_content)
         write_translation_report(OUTPUT_DIR, translation_title, translation_content, filename="translation_notes.md")
+        remove_partial_report(OUTPUT_DIR, "translation_notes")
         log("✅ 原文翻译报告已保存: translation_notes.md")
 
         # 保存图表报告：逐图 checkpoint，并按原始图片顺序组装最终报告。
@@ -452,6 +462,7 @@ def main():
                 write_fig_report(OUTPUT_DIR, main_title, figure_sections)
 
         write_fig_report(OUTPUT_DIR, main_title, figure_sections, filename="figs_notes.md")
+        remove_partial_report(OUTPUT_DIR, "figs_notes")
         log("✅ 图表报告已保存")
         write_progress(OUTPUT_DIR, "reports", status="done")
 
