@@ -145,7 +145,13 @@ def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
 
     # [Structured Output] 提示词中必须包含 'JSON' 关键词
     prompt = """
-    任务：提炼本文的**核心技术模块或关键实现细节 (3-6个)**。
+    任务：提炼本文**真正独立**的核心技术点。
+
+    **数量由论文创新密度决定**：可能只有 1-2 个，也可能 5-6 个。宁可少而精，绝不凑数。
+
+    **反换角度原则（最重要）**：
+    若若干个点只是同一机制的不同侧面（如"机制本身" / "该机制解决的问题" / "该机制的实现" / "该机制的理论分析"），**必须合并为一个点**。
+    每个点都要能在不重复其他点的前提下独立成立。
 
     **Output Restriction**:
     The output **MUST** be a valid JSON object. Do not include any markdown formatting or explanatory text outside the JSON.
@@ -154,11 +160,17 @@ def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
     {
         "points": [
             {
-                "name": "技术点名称 (如: Cross-Attention Mechanism)",
+                "name": "技术点名称 (如: Multi-Query Attention)",
+                "scope": "本点的内容边界：专讲什么、不涉及什么（不涉及的部分归属其他点）。各点 scope 必须互不重叠。",
                 "context": "原文关键描述 (1句话)"
             }
         ]
     }
+
+    要求：
+    1. name：简洁的技术点名称。
+    2. scope：明确划出本点的内容地盘——讲什么、不讲什么；各点 scope 之间不得重叠。
+    3. context：原文中支撑该点的一句关键描述。
 
     请严格按照上述 JSON 格式提取。
     """
