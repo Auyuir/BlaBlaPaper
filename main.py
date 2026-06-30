@@ -121,6 +121,11 @@ def main():
         dest="image_model",
         help="覆盖逐图分析所用模型（默认读 .env 的 model_image，未设则同 text 模型）",
     )
+    parser_cli.add_argument(
+        "--yes",
+        action="store_true",
+        help="跳过 TeX 模式的交互确认（如检测到 TikZ 图时自动继续）",
+    )
     args = parser_cli.parse_args()
 
     input_path = os.path.expanduser(args.input_path)
@@ -162,10 +167,13 @@ def main():
     from src import utils
     from src import mineru_client
     from src import html_exporter
+    from src import tex_loader
 
     # 判断输入类型并处理
     zip_path = None  # 跟踪临时 ZIP 文件（用于清理）
     is_pdf_input = False  # 仅 PDF 模式才重命名输入目录
+    is_tex_input = False  # TeX 模式产生临时工作目录，需在 finally 清理
+    tex_work_dir = None  # TeX 转换出的临时工作目录路径
 
     try:
         if os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
@@ -206,9 +214,16 @@ def main():
             print(f"✅ PDF 解析完成，工作目录: {work_dir}\n")
 
         elif os.path.isdir(input_path):
-            # === 模式 A: 目录输入（原有逻辑） ===
-            print(f"📁 检测到目录输入: {input_path}")
-            work_dir = input_path
+            # === 目录输入：TeX 源码优先转换，否则按 MinerU 产物处理 ===
+            if tex_loader.is_tex_source(input_path):
+                print(f"📄 检测到 TeX 源码输入: {input_path}")
+                work_dir = tex_loader.convert(input_path, assume_yes=args.yes)
+                is_tex_input = True
+                tex_work_dir = work_dir
+                print(f"✅ TeX 已转换为 Markdown，工作目录: {work_dir}\n")
+            else:
+                print(f"📁 检测到目录输入: {input_path}")
+                work_dir = input_path
 
         else:
             print(f"[错误] 不支持的输入类型: {input_path}")
@@ -272,7 +287,10 @@ def main():
         write_progress(OUTPUT_DIR, "start")
 
         # 生成并保存 info.json（提前生成，供基本信息提取使用）
-        pdf_metadata_context = parser.get_pdf_metadata_context(INPUT_DIR)
+        if is_tex_input:
+            pdf_metadata_context = tex_loader.build_meta_context(INPUT_DIR)
+        else:
+            pdf_metadata_context = parser.get_pdf_metadata_context(INPUT_DIR)
         write_progress(OUTPUT_DIR, "info_json")
         info_data = core.generate_info_json_data(
             full_context,
@@ -504,6 +522,15 @@ def main():
                 print(f"✅ 已清理临时文件: {zip_path}")
             except Exception as e:
                 print(f"⚠️  清理临时文件失败: {e}")
+        # 清理 TeX 转换产生的临时工作目录
+        if is_tex_input and tex_work_dir and os.path.isdir(tex_work_dir):
+            if os.getenv("BLABLA_KEEP_TEX_BUILD", "").lower() in ("1", "true", "yes"):
+                print(f"ℹ️  保留 TeX 临时目录（BLABLA_KEEP_TEX_BUILD=1）: {tex_work_dir}")
+            else:
+                try:
+                    shutil.rmtree(tex_work_dir, ignore_errors=True)
+                except Exception as e:
+                    print(f"⚠️  清理 TeX 临时目录失败: {e}")
 
 
 if __name__ == "__main__":
