@@ -235,6 +235,13 @@ A: 当你能拿到论文的 LaTeX 源码（如 arXiv 的 source tarball）时优
 
 ---
 
+## 后续计划
+
+- **跨 notes 并发、notes 内串行**：当前流水线是"组内并发、组间串行"（深挖组 → ELI5 组 → 翻译组 → 图组接力，每组内部点间并发）。计划反过来——让 `paper_notes` / `ELI5_notes` / `translation_notes` 三条独立轨道并行，单条 notes 内部顺序生成（为内容连贯性接受串行）。`translation` 不依赖技术点提取，可最早启动。目的：在保证单份报告连贯的前提下用跨 notes 并发换吞吐。
+- **figs_notes 按需生成**：图片多时逐图分析是总执行时延的大头。计划支持按需 / 限流 / 懒生成 `figs_notes`（或设为可选），避免无谓分析大量图片拖慢流水线。
+
+---
+
 ## License
 
 MIT
