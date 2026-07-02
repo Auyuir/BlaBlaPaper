@@ -12,6 +12,8 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from src import logutil
+
 
 REPORT_MARKDOWN_FILES = ("paper_notes.md", "ELI5_notes.md", "figs_notes.md", "translation_notes.md")
 
@@ -25,8 +27,8 @@ REPORT_SECTION_ORDER = (
 )
 
 
-def log(message):
-    print(message, flush=True)
+def log(message, level="INFO"):
+    logutil.log(message, level)
 
 
 def write_progress(output_dir, stage, status="running", error=None):
@@ -126,13 +128,23 @@ def main():
         action="store_true",
         help="跳过 TeX 模式的交互确认（如检测到 TikZ 图时自动继续）",
     )
+    parser_cli.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="打印调试级日志（每次 LLM 调用的完整信息、checkpoint/parallel 等）",
+    )
     args = parser_cli.parse_args()
+
+    if args.verbose or os.getenv("BLABLA_VERBOSE", "").strip().lower() in ("1", "true", "yes"):
+        logutil.set_verbosity("DEBUG")
+    run_started = time.monotonic()
 
     input_path = os.path.expanduser(args.input_path)
     pages_dir = os.path.expanduser(args.pages_dir) if args.pages_dir else None
     should_export_html = args.html or args.html_only or bool(pages_dir)
     if not os.path.exists(input_path):
-        print(f"[错误] 输入路径不存在: {input_path}")
+        log(f"[错误] 输入路径不存在: {input_path}", "ERROR")
         sys.exit(1)
 
     # 允许通过命令行覆盖 .env 中的模型选择（CLI 优先于配置）
@@ -151,14 +163,14 @@ def main():
             site_title="BlaBlaCutter",
             output_root=pages_dir,
         )
-        print(f"✅ HTML 报告已保存: {html_index}")
+        log(f"✅ HTML 报告已保存: {html_index}")
         if pages_dir:
-            print(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
+            log(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
         return
 
     if args.html_only:
-        print(f"[错误] --html-only 需要传入已生成的报告目录: {input_path}")
-        print("提示：目录中应包含 paper_notes.md、ELI5_notes.md 或 figs_notes.md")
+        log(f"[错误] --html-only 需要传入已生成的报告目录: {input_path}", "ERROR")
+        log("提示：目录中应包含 paper_notes.md、ELI5_notes.md 或 figs_notes.md", "ERROR")
         sys.exit(1)
 
     from src import config
@@ -168,6 +180,7 @@ def main():
     from src import mineru_client
     from src import html_exporter
     from src import tex_loader
+    from src import llm_client
 
     # 判断输入类型并处理
     zip_path = None  # 跟踪临时 ZIP 文件（用于清理）
@@ -178,7 +191,7 @@ def main():
     try:
         if os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
             # === 模式 B: PDF 输入 ===
-            print(f"📄 检测到 PDF 文件输入: {input_path}")
+            log(f"📄 检测到 PDF 文件输入: {input_path}")
 
             # 初始化 Mineru 客户端
             client = mineru_client.MineruClient()
@@ -186,13 +199,13 @@ def main():
             # 1. 上传 PDF
             batch_id = client.upload_file(input_path)
             if not batch_id:
-                print("❌ PDF 上传失败")
+                log("❌ PDF 上传失败", "ERROR")
                 sys.exit(1)
 
             # 2. 轮询解析状态
             download_url = client.poll_status(batch_id)
             if not download_url:
-                print("❌ PDF 解析失败")
+                log("❌ PDF 解析失败", "ERROR")
                 sys.exit(1)
 
             # 3. 下载结果 ZIP
@@ -201,7 +214,7 @@ def main():
             zip_path = os.path.join(pdf_dir, f"{pdf_name}_result.zip")
 
             if not client.download_file(download_url, zip_path):
-                print("❌ 结果下载失败")
+                log("❌ 结果下载失败", "ERROR")
                 sys.exit(1)
 
             # 4. 解压 ZIP 文件
@@ -211,23 +224,23 @@ def main():
             # 设置工作目录为解压后的目录
             work_dir = extract_dir
             is_pdf_input = True
-            print(f"✅ PDF 解析完成，工作目录: {work_dir}\n")
+            log(f"✅ PDF 解析完成，工作目录: {work_dir}\n")
 
         elif os.path.isdir(input_path):
             # === 目录输入：TeX 源码优先转换，否则按 MinerU 产物处理 ===
             if tex_loader.is_tex_source(input_path):
-                print(f"📄 检测到 TeX 源码输入: {input_path}")
+                log(f"📄 检测到 TeX 源码输入: {input_path}")
                 work_dir = tex_loader.convert(input_path, assume_yes=args.yes)
                 is_tex_input = True
                 tex_work_dir = work_dir
-                print(f"✅ TeX 已转换为 Markdown，工作目录: {work_dir}\n")
+                log(f"✅ TeX 已转换为 Markdown，工作目录: {work_dir}\n")
             else:
-                print(f"📁 检测到目录输入: {input_path}")
+                log(f"📁 检测到目录输入: {input_path}")
                 work_dir = input_path
 
         else:
-            print(f"[错误] 不支持的输入类型: {input_path}")
-            print("提示：请提供 PDF 文件或包含 .md 文件的目录")
+            log(f"[错误] 不支持的输入类型: {input_path}", "ERROR")
+            log("提示：请提供 PDF 文件或包含 .md 文件的目录", "ERROR")
             sys.exit(1)
 
         # === 后续流程统一使用 work_dir ===
@@ -236,7 +249,7 @@ def main():
         # 查找 Markdown 文件
         md_files = glob.glob(os.path.join(INPUT_DIR, "*.md"))
         if not md_files:
-            print(f"[错误] 未在目录中找到 .md 文件: {INPUT_DIR}")
+            log(f"[错误] 未在目录中找到 .md 文件: {INPUT_DIR}", "ERROR")
             sys.exit(1)
 
         # 优先使用 full.md 或 md.md，否则使用第一个 .md 文件
@@ -264,10 +277,14 @@ def main():
         output_subdir = utils.generate_slug_from_title(paper_title) if paper_title else f"Report_{os.path.basename(INPUT_DIR.strip('/'))}"
         OUTPUT_DIR = os.path.join("outputs", output_subdir)
 
-        print(f"--- Output: {OUTPUT_DIR} ---")
+        log(f"--- Output: {OUTPUT_DIR} ---")
 
         # 创建输出环境并复制图片
         new_img_paths, valid_filenames = parser.setup_environment(OUTPUT_DIR, ordered_imgs)
+
+        # 输出目录就绪后，把日志写入 run-<时间戳>.log（保留历史）。
+        # 此前的早期日志已缓冲，set_log_file 时一并刷盘。
+        logutil.set_log_file(os.path.join(OUTPUT_DIR, f"run-{time.strftime('%Y%m%d-%H%M%S')}.log"))
 
         # 构建完整的 LLM 上下文
         # 避免每个章节请求都重复发送全部图片；逐图分析仍会单独使用图片。
@@ -311,7 +328,7 @@ def main():
                 json.dump(final_info, f, ensure_ascii=False, indent=2)
             log("✅ 信息文件已保存: info.json")
         else:
-            log("⚠️  信息提取失败，跳过 info.json 生成")
+            log("⚠️  信息提取失败，跳过 info.json 生成", "WARN")
 
         results["0. 论文基本信息"] = core.analyze_bibliographic_info(info_data)
         write_paper_report(OUTPUT_DIR, main_title, results)
@@ -373,7 +390,7 @@ def main():
 
         tech_points = []
         max_workers = min(config.LLM_MAX_WORKERS, len(analysis_tasks))
-        log(f"[parallel] main_analysis: workers={max_workers} tasks={len(analysis_tasks)}")
+        log(f"[parallel] main_analysis: workers={max_workers} tasks={len(analysis_tasks)}", "DEBUG")
         write_progress(OUTPUT_DIR, "main_analysis")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_task = {
@@ -385,7 +402,7 @@ def main():
                 try:
                     value = future.result()
                 except Exception as e:
-                    log(f"[parallel] main_analysis: {key} failed: {e}")
+                    log(f"[parallel] main_analysis: {key} failed: {e}", "ERROR")
                     value = [] if task_type == "tech_points" else None
 
                 if task_type == "tech_points":
@@ -394,7 +411,7 @@ def main():
                 else:
                     results[key] = value
                     write_paper_report(OUTPUT_DIR, main_title, results)
-                    log(f"[parallel] main_analysis: {key} done")
+                    log(f"[parallel] main_analysis: {key} done", "DEBUG")
 
         write_progress(OUTPUT_DIR, "tech_deep_dive")
         results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
@@ -463,7 +480,7 @@ def main():
             return index, section
 
         fig_workers = min(config.LLM_MAX_WORKERS, len(unique_imgs)) if unique_imgs else 1
-        log(f"[parallel] figures: workers={fig_workers} tasks={len(unique_imgs)}")
+        log(f"[parallel] figures: workers={fig_workers} tasks={len(unique_imgs)}", "DEBUG")
         with ThreadPoolExecutor(max_workers=fig_workers) as executor:
             future_to_idx = {
                 executor.submit(analyze_figure, idx, img_path): idx
@@ -476,13 +493,18 @@ def main():
                     figure_sections[idx] = section
                     log(f"[parallel] figures: done {idx + 1}/{len(unique_imgs)}")
                 except Exception as e:
-                    log(f"[parallel] figures: task={idx + 1} failed: {e}")
+                    log(f"[parallel] figures: task={idx + 1} failed: {e}", "ERROR")
                 write_fig_report(OUTPUT_DIR, main_title, figure_sections)
 
         write_fig_report(OUTPUT_DIR, main_title, figure_sections, filename="figs_notes.md")
         remove_partial_report(OUTPUT_DIR, "figs_notes")
         log("✅ 图表报告已保存")
         write_progress(OUTPUT_DIR, "reports", status="done")
+
+        # 运行摘要
+        total_elapsed = time.monotonic() - run_started
+        total_calls, failed_calls = llm_client.stats()
+        log(f"✅ 完成: {main_title} | 耗时 {total_elapsed:.1f}s | LLM 调用 {total_calls} 次（失败 {failed_calls}）")
 
         # 可选：导出 HTML 版本
         if args.html or pages_dir:
@@ -491,9 +513,9 @@ def main():
                 site_title="BlaBlaCutter",
                 output_root=pages_dir,
             )
-            print(f"✅ HTML 报告已保存: {html_index}")
+            log(f"✅ HTML 报告已保存: {html_index}")
             if pages_dir:
-                print(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
+                log(f"✅ GitHub Pages 静态目录已保存: {os.path.abspath(pages_dir)}")
 
         # 重命名输入文件夹（仅 PDF 模式：解压目录一次性；目录/.md 输入是用户指定路径，不动）
         if is_pdf_input and output_subdir and paper_title:
@@ -504,33 +526,33 @@ def main():
 
                 # 如果新文件夹名与当前文件夹名相同，跳过重命名
                 if os.path.abspath(new_input_dir) == input_dir_abs:
-                    print(f"ℹ️  输入文件夹名称已符合规范，无需重命名")
+                    log(f"ℹ️  输入文件夹名称已符合规范，无需重命名")
                 # 如果新文件夹已存在，跳过重命名并给出警告
                 elif os.path.exists(new_input_dir):
-                    print(f"⚠️  目标文件夹已存在: {new_input_dir}，跳过重命名")
+                    log(f"⚠️  目标文件夹已存在: {new_input_dir}，跳过重命名", "WARN")
                 else:
                     shutil.move(input_dir_abs, new_input_dir)
-                    print(f"✅ 输入文件夹已重命名为: {output_subdir}")
+                    log(f"✅ 输入文件夹已重命名为: {output_subdir}")
             except Exception as e:
-                print(f"⚠️  重命名输入文件夹失败: {e}，文件夹保持原名称")
+                log(f"⚠️  重命名输入文件夹失败: {e}，文件夹保持原名称", "WARN")
 
     finally:
         # 清理临时 ZIP 文件
         if zip_path and os.path.exists(zip_path):
             try:
                 os.remove(zip_path)
-                print(f"✅ 已清理临时文件: {zip_path}")
+                log(f"✅ 已清理临时文件: {zip_path}")
             except Exception as e:
-                print(f"⚠️  清理临时文件失败: {e}")
+                log(f"⚠️  清理临时文件失败: {e}", "WARN")
         # 清理 TeX 转换产生的临时工作目录
         if is_tex_input and tex_work_dir and os.path.isdir(tex_work_dir):
             if os.getenv("BLABLA_KEEP_TEX_BUILD", "").lower() in ("1", "true", "yes"):
-                print(f"ℹ️  保留 TeX 临时目录（BLABLA_KEEP_TEX_BUILD=1）: {tex_work_dir}")
+                log(f"ℹ️  保留 TeX 临时目录（BLABLA_KEEP_TEX_BUILD=1）: {tex_work_dir}")
             else:
                 try:
                     shutil.rmtree(tex_work_dir, ignore_errors=True)
                 except Exception as e:
-                    print(f"⚠️  清理 TeX 临时目录失败: {e}")
+                    log(f"⚠️  清理 TeX 临时目录失败: {e}", "WARN")
 
 
 if __name__ == "__main__":

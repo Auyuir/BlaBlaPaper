@@ -98,6 +98,8 @@ python main.py /path/to/outputs/paper-title --html-only --pages-dir docs
 
 > **输入自动识别**：传入 PDF → 走 MinerU 解析；传入含 `.tex`（带 `\documentclass`）的目录 → 走 TeX 源码模式（pandoc 转换，代码/公式/表格逐字精确，自动栅格化图片，需 pandoc + poppler/ghostscript）；传入含 `full.md` 的目录 → 按 MinerU 产物处理。TeX 模式若检测到 TikZ 图会提示确认（`--yes` 可跳过），转换失败会带阶段与定位信息报错。
 
+> **日志**：运行日志同时打印到命令行并写入 `outputs/<paper>/run-<时间戳>.log`（保留历史）。默认只显示阶段进度；加 `-v` / `--verbose`（或设 `BLABLA_VERBOSE=1`）显示每次 LLM 调用的完整信息、checkpoint/parallel 等调试细节；LLM 出错时诊断信息始终打印。
+
 输出在 `outputs/` 目录下：
 
 ```
@@ -107,6 +109,7 @@ outputs/your-paper-title/
 ├── figs_notes.md         # 图表详解报告
 ├── translation_notes.md  # 原文翻译报告
 ├── info.json             # 论文元数据
+├── run-*.log             # 运行日志（带时间戳，保留历史）
 └── html/                 # 静态网页（--html 或 --html-only）
     ├── index.html
     ├── paper_notes/

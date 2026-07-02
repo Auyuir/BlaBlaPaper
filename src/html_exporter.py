@@ -8,6 +8,8 @@ import re
 import shutil
 from pathlib import Path
 
+from . import logutil
+
 
 REPORTS = [
     ("paper_notes.md", "paper_notes", "论文解析"),
@@ -37,7 +39,7 @@ def _llm_review_html(html_content, md_name):
     if not found:
         return html_content
 
-    print(f"   -> LLM quality check: {md_name} ...")
+    logutil.log(f"   -> LLM quality check: {md_name} ...", "INFO")
 
     escaped_html = html_content.replace("\\", "\\\\").replace("`", "\\`")
     prompt = (
@@ -80,11 +82,11 @@ def _llm_review_html(html_content, md_name):
                 cleaned = cleaned[:-3]
             cleaned = cleaned.strip()
             if cleaned.startswith("<") and len(cleaned) > 50:
-                print(f"    -> LLM quality check complete, issues fixed")
+                logutil.log(f"    -> LLM quality check complete, issues fixed", "INFO")
                 return cleaned
         return html_content
     except Exception as e:
-        print(f"    -> LLM quality check skipped: {e}")
+        logutil.log(f"    -> LLM quality check skipped: {e}", "WARN")
         return html_content
 
 

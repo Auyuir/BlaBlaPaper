@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from . import config
 from . import prompts
 from . import llm_client
+from . import logutil
 from . import utils
 from . import parser
 
@@ -29,7 +30,7 @@ def _checkpoint_path(checkpoint_dir, name, suffix):
 def _load_text_checkpoint(checkpoint_dir, name):
     path = _checkpoint_path(checkpoint_dir, name, ".md")
     if path and os.path.exists(path):
-        print(f"[checkpoint] reuse {os.path.basename(path)}", flush=True)
+        logutil.log(f"[checkpoint] reuse {os.path.basename(path)}", "DEBUG")
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     return None
@@ -46,7 +47,7 @@ def _save_text_checkpoint(checkpoint_dir, name, value):
 def _load_json_checkpoint(checkpoint_dir, name):
     path = _checkpoint_path(checkpoint_dir, name, ".json")
     if path and os.path.exists(path):
-        print(f"[checkpoint] reuse {os.path.basename(path)}", flush=True)
+        logutil.log(f"[checkpoint] reuse {os.path.basename(path)}", "DEBUG")
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return None
@@ -67,7 +68,7 @@ def _run_ordered_parallel(label, items, worker):
     if max_workers <= 1:
         return [worker(item) for item in items]
 
-    print(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", flush=True)
+    logutil.log(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", "DEBUG")
     results = [None] * len(items)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {
@@ -79,7 +80,7 @@ def _run_ordered_parallel(label, items, worker):
             try:
                 results[idx] = future.result()
             except Exception as e:
-                print(f"[parallel] {label}: task={idx + 1} failed: {e}", flush=True)
+                logutil.log(f"[parallel] {label}: task={idx + 1} failed: {e}", "ERROR")
                 results[idx] = None
     return results
 
@@ -141,7 +142,7 @@ def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
     if cached is not None:
         return cached
 
-    print(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---", flush=True)
+    logutil.log(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---", "INFO")
 
     # [Structured Output] 提示词中必须包含 'JSON' 关键词
     prompt = """
@@ -194,10 +195,10 @@ def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
         points = data.get("points", [])
         return _save_json_checkpoint(checkpoint_dir, "tech_points", points)
     except json.JSONDecodeError as e:
-        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", flush=True)
+        logutil.log(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", "ERROR")
         return []
     except Exception as e:
-        print(f"[未知错误] {e}", flush=True)
+        logutil.log(f"[未知错误] {e}", "ERROR")
         return []
 
 def analyze_bibliographic_info(info_data):
@@ -210,7 +211,7 @@ def analyze_bibliographic_info(info_data):
     Returns:
         格式化的论文基本信息文本
     """
-    print(f"\n--- 正在提取: 论文基本信息 ---")
+    logutil.log("\n--- 正在提取: 论文基本信息 ---", "INFO")
 
     if not info_data or "metadata" not in info_data:
         return "未能提取到论文基本信息。"
@@ -254,7 +255,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
     if not innovation_data:
         return "未能提取到核心技术细节。"
 
-    print(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---", flush=True)
+    logutil.log(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---", "INFO")
     sections = []
 
     summary = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary")
@@ -283,7 +284,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
         if cached_detail is not None:
             return f"### {idx}. {name}\n\n{cached_detail}\n"
 
-        print(f"   -> Tech Deep Dive: {name} ...", flush=True)
+        logutil.log(f"   -> Tech Deep Dive: {name} ...", "INFO")
         prompt = f"""
         任务：深度剖析技术细节 **"{name}"**。
         参考线索：{ctx}
@@ -316,12 +317,12 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
     if cached is not None:
         return cached
 
-    print(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", flush=True)
+    logutil.log(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", "INFO")
     sections = []
 
     overall_res = _load_text_checkpoint(checkpoint_dir, "eli5_00_overall")
     if overall_res is None:
-        print("   -> 通俗解释: 整体创新点 ...", flush=True)
+        logutil.log("   -> 通俗解释: 整体创新点 ...", "INFO")
         overall_prompt = f"""
         {prompts.ELI5_ROLE_PROMPT}
 
@@ -353,7 +354,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         if cached_detail is not None:
             return f"### {idx}. {name}\n\n{cached_detail}\n"
 
-        print(f"   -> 通俗解释: {name} ...", flush=True)
+        logutil.log(f"   -> 通俗解释: {name} ...", "INFO")
         prompt = f"""
         {prompts.ELI5_ROLE_PROMPT}
 
@@ -427,7 +428,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
         return cached
 
     segments = split_markdown_for_translation(full_text)
-    print(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", flush=True)
+    logutil.log(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", "INFO")
 
     def worker(indexed):
         idx, seg = indexed
@@ -435,7 +436,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
         cached_seg = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
         if cached_seg is not None:
             return cached_seg
-        print(f"   -> 翻译第 {idx}/{len(segments)} 段 ...", flush=True)
+        logutil.log(f"   -> 翻译第 {idx}/{len(segments)} 段 ...", "INFO")
         messages = [
             {"role": "system", "content": config.UNIFIED_SYSTEM_PROMPT},
             {"role": "user", "content": utils.format_document_content(seg)},
@@ -466,7 +467,7 @@ def generate_info_json_data(context_messages, model_name, additional_context=Non
     if cached is not None:
         return cached
 
-    print(f"\n--- [信息提取] 正在生成元数据和描述 (Model: {model_name}) ---", flush=True)
+    logutil.log(f"\n--- [信息提取] 正在生成元数据和描述 (Model: {model_name}) ---", "INFO")
 
     enhanced_messages = copy.deepcopy(context_messages)
     if additional_context:
@@ -490,10 +491,10 @@ def generate_info_json_data(context_messages, model_name, additional_context=Non
         data = json.loads(clean)
         return _save_json_checkpoint(checkpoint_dir, "info_data", data)
     except json.JSONDecodeError as e:
-        print(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", flush=True)
+        logutil.log(f"[解析错误] JSON 解析失败: {e}\n原始内容: {json_str}", "ERROR")
         return None
     except Exception as e:
-        print(f"[未知错误] {e}", flush=True)
+        logutil.log(f"[未知错误] {e}", "ERROR")
         return None
 
 def analyze_section(title, task_prompt, context_messages, valid_filenames, model_name, caption_map, checkpoint_dir=None, checkpoint_name=None):
@@ -505,7 +506,7 @@ def analyze_section(title, task_prompt, context_messages, valid_filenames, model
     if cached is not None:
         return cached
 
-    print(f"--- 正在分析: {title} ---", flush=True)
+    logutil.log(f"--- 正在分析: {title} ---", "INFO")
     full_prompt = f"{task_prompt}\n{prompts.GLOBAL_STYLE_PROMPT}"
     res = llm_client.call_llm_with_cache(
         context_messages,
@@ -528,7 +529,7 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
     if cached is not None:
         return cached
 
-    print(f"   -> 单图分析: {filename} ...", flush=True)
+    logutil.log(f"   -> 单图分析: {filename} ...", "INFO")
 
     prompt = f"""
     任务：详细分析图片 {filename}。
@@ -566,5 +567,5 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
         result = utils.correct_image_references(raw, valid_filenames, None)
         return _save_text_checkpoint(checkpoint_dir, checkpoint_name, result)
     except Exception as e:
-        print(f"图表分析失败: {e}", flush=True)
+        logutil.log(f"图表分析失败: {e}", "ERROR")
         return None

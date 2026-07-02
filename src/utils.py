@@ -7,6 +7,8 @@ import mimetypes
 import os
 import zipfile
 
+from . import logutil
+
 
 def generate_slug_from_title(title):
     """
@@ -166,5 +168,5 @@ def extract_zip(zip_path, extract_to_dir):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to_dir)
 
-    print(f"✅ 解压完成: {extract_to_dir}")
+    logutil.log(f"✅ 解压完成: {extract_to_dir}", "INFO")
     return extract_to_dir

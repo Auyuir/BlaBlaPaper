@@ -4,6 +4,8 @@
 import os
 from pathlib import Path
 
+from . import logutil
+
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
@@ -102,11 +104,11 @@ if not MODEL_NAME_IMAGE:
 _model_text_explicit = bool(_env("model", "MODEL", "OPENAI_MODEL"))
 MODEL_NAME_TEXT = _env("model", "MODEL", "OPENAI_MODEL", default=MODEL_NAME_IMAGE)
 if not _model_text_explicit:
-    print(
+    logutil.log(
         f"[提示] 未配置 model，文本分析将复用图片模型 {MODEL_NAME_IMAGE!r}"
         "（多模态，单价通常更高）。如需降低成本，请在 .env 设置 model 为纯文本模型"
         "（如 deepseek-chat / glm-4-flash）。",
-        flush=True,
+        "WARN",
     )
 API_BASE_URL = _env(
     "base_url",
@@ -168,7 +170,7 @@ UNIFIED_SYSTEM_PROMPT = (
 MINERU_API_TOKEN = _env("MINERU_API_TOKEN")
 
 if not MINERU_API_TOKEN:
-    print("[警告] MINERU_API_TOKEN 未配置，PDF 解析功能将不可用")
+    logutil.log("[警告] MINERU_API_TOKEN 未配置，PDF 解析功能将不可用", "WARN")
 
 MINERU_BASE_URL = "https://mineru.net/api/v4"
 MINERU_MODEL_VERSION = "pipeline"  # 可选: "pipeline" 或 "vlm"

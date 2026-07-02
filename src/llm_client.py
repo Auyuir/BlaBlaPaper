@@ -5,21 +5,36 @@ import requests
 import time
 import json
 import copy
-import itertools
 import threading
 from urllib.parse import urlparse
 
 from . import config
+from . import logutil
 from .utils import clean_llm_output
 
 
-_REQUEST_COUNTER = itertools.count(1)
+_TOTAL_COUNT = 0
+_FAILURE_COUNT = 0
 _COUNTER_LOCK = threading.Lock()
 
 
 def _next_request_id():
+    global _TOTAL_COUNT
     with _COUNTER_LOCK:
-        return next(_REQUEST_COUNTER)
+        _TOTAL_COUNT += 1
+        return _TOTAL_COUNT
+
+
+def _record_failure():
+    global _FAILURE_COUNT
+    with _COUNTER_LOCK:
+        _FAILURE_COUNT += 1
+
+
+def stats():
+    """返回 (总调用数, 失败数)，供运行摘要使用。"""
+    with _COUNTER_LOCK:
+        return _TOTAL_COUNT, _FAILURE_COUNT
 
 
 def _api_path(api_url):
@@ -238,11 +253,11 @@ def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_
     request_id = _next_request_id()
     text_chars, image_count = _summarize_messages(messages, new_query)
     started = time.monotonic()
-    print(
+    logutil.log(
         f"[LLM:{request_id}] start stage={stage_name} model={model_name} "
         f"api={effective_wire} path={_api_path(api_url)} json={json_mode} "
         f"text_chars={text_chars} images={image_count}",
-        flush=True,
+        "DEBUG",
     )
 
     for attempt in range(config.LLM_MAX_RETRIES):
@@ -261,63 +276,70 @@ def call_llm_with_cache(messages, new_query, api_key, api_url, model_name, json_
 
             if resp.status_code == 429:
                 wait_time = 2 * (2 ** attempt)
-                print(f"[LLM:{request_id}] rate_limited attempt={attempt + 1} wait={wait_time}s", flush=True)
+                logutil.log(f"[LLM:{request_id}] rate_limited stage={stage_name} attempt={attempt + 1} wait={wait_time}s", "WARN")
                 time.sleep(wait_time)
                 continue
 
             if resp.status_code >= 400:
-                print(
-                    f"[LLM:{request_id}] http_error attempt={attempt + 1} "
-                    f"status={resp.status_code} body={_response_excerpt(resp)}",
-                    flush=True,
+                logutil.log(
+                    f"[LLM:{request_id}] http_error stage={stage_name} attempt={attempt + 1} "
+                    f"status={resp.status_code} model={model_name} api={effective_wire} "
+                    f"path={_api_path(api_url)} text_chars={text_chars} body={_response_excerpt(resp)}",
+                    "ERROR",
                 )
             resp.raise_for_status()
             data = resp.json()
 
             if isinstance(data, dict) and data.get("error"):
-                print(f"API Error: {data['error']}")
+                logutil.log(f"[LLM:{request_id}] api_error stage={stage_name} model={model_name} error={data['error']}", "ERROR")
+                _record_failure()
                 return None
 
             content = _extract_responses_text(data) if use_responses else _extract_chat_text(data)
             elapsed = time.monotonic() - started
             output_chars = len(content or "")
-            print(
-                f"[LLM:{request_id}] done stage={stage_name} attempts={attempt + 1} "
-                f"elapsed={elapsed:.1f}s output_chars={output_chars}",
-                flush=True,
+            logutil.log(
+                f"[LLM:{request_id}] ✓ {stage_name} {elapsed:.1f}s → {output_chars}c (attempt {attempt + 1})",
+                "DEBUG",
             )
             return content if json_mode else clean_llm_output(content, strip_headings=strip_headings)
 
         except requests.exceptions.RequestException as e:
             elapsed = time.monotonic() - started
-            print(
+            logutil.log(
                 f"[LLM:{request_id}] request_error stage={stage_name} attempt={attempt + 1}/"
-                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s error={e}",
-                flush=True,
+                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s model={model_name} "
+                f"api={effective_wire} path={_api_path(api_url)} error={e}",
+                "ERROR",
             )
             if attempt < config.LLM_MAX_RETRIES - 1:
                 time.sleep(2)
 
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
             elapsed = time.monotonic() - started
-            print(
+            logutil.log(
                 f"[LLM:{request_id}] response_error stage={stage_name} attempt={attempt + 1}/"
-                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s error={e}",
-                flush=True,
+                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s model={model_name} error={e}",
+                "ERROR",
             )
             if attempt < config.LLM_MAX_RETRIES - 1:
                 time.sleep(2)
 
         except Exception as e:
             elapsed = time.monotonic() - started
-            print(
+            logutil.log(
                 f"[LLM:{request_id}] unexpected_error stage={stage_name} attempt={attempt + 1}/"
-                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s error={e}",
-                flush=True,
+                f"{config.LLM_MAX_RETRIES} elapsed={elapsed:.1f}s model={model_name} error={e}",
+                "ERROR",
             )
             if attempt < config.LLM_MAX_RETRIES - 1:
                 time.sleep(2)
 
     elapsed = time.monotonic() - started
-    print(f"[LLM:{request_id}] failed stage={stage_name} elapsed={elapsed:.1f}s", flush=True)
+    logutil.log(
+        f"[LLM:{request_id}] failed stage={stage_name} model={model_name} "
+        f"api={effective_wire} path={_api_path(api_url)} elapsed={elapsed:.1f}s",
+        "ERROR",
+    )
+    _record_failure()
     return None
