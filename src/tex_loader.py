@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tempfile
 
+from . import logutil
+
 
 class TexConvertError(Exception):
     """TeX 转换失败，携带阶段/文件/原因/附近内容/建议供定位。"""
@@ -41,12 +43,12 @@ class TexConvertError(Exception):
         return "\n".join(lines)
 
 
-def _log(msg):
-    print(msg, flush=True)
+def _log(msg, level="INFO"):
+    logutil.log(msg, level)
 
 
 def _warn(stage, msg):
-    _log("[TeX 警告] 阶段=%s %s" % (stage, msg))
+    _log("[TeX 警告] 阶段=%s %s" % (stage, msg), "WARN")
 
 
 # ---------- 检测 ----------
@@ -111,6 +113,7 @@ def _balanced_brace(tex, cmd):
 def _strip_tex_format(s):
     """剥离标题/作者里常见的格式命令，保留纯文本。"""
     s = re.sub(r"(?<!\\)%[^\n]*", "", s)                         # 注释（非 \%）
+    s = re.sub(r"\\xspace\b", "", s)                              # \xspace 不产生可见输出
     s = re.sub(r"\\vspace\s*\{[^}]*\}", " ", s)
     s = re.sub(r"\\vskip\s+\S+", " ", s)                          # \vskip 0.25in / \vskip -\parskip
     s = re.sub(r"\\hrule(?:(?:\s+(?:height|width|depth))\s+\S+)*", " ", s)
@@ -128,6 +131,40 @@ def _strip_tex_format(s):
     return s
 
 
+def _collect_simple_macros(tex_text):
+    """收集无参 \\newcommand{\\name}{replacement}（跳过注释；replacement 可含嵌套花括号）。
+    供标题/作者展开自定义宏（如 \\gmq -> \\textsc{GQA}），避免被当残余命令剥离成空。"""
+    macros = {}
+    text = re.sub(r"(?<!\\)%[^\n]*", "", tex_text)  # 去注释，避免采集到被注释的旧定义
+    for m in re.finditer(r"\\newcommand\s*\{\s*\\([a-zA-Z]+)\s*\}\s*\{", text):
+        name = m.group(1)
+        i = m.end() - 1  # 指向 replacement 的 '{'
+        depth = 0
+        for j in range(i, len(text)):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    macros[name] = text[i + 1:j]
+                    break
+    return macros
+
+
+def _expand_simple_macros(s, macros):
+    """用宏定义替换 \\name（按键长降序避免短名前缀误替；迭代至稳定，限 5 轮防自引用死循环）。"""
+    if not macros:
+        return s
+    for _ in range(5):
+        prev = s
+        for name in sorted(macros, key=len, reverse=True):
+            s = re.sub(r"\\" + re.escape(name) + r"\b",
+                       lambda _m, rep=macros[name]: rep, s)
+        if s == prev:
+            break
+    return s
+
+
 def _find_abstract(tex):
     m = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", tex, re.S)
     return m.group(1) if m else None
@@ -135,7 +172,10 @@ def _find_abstract(tex):
 
 def _harvest_frontmatter(tex_text, tex_root, input_dir, bib_path):
     """返回 (title, author, date, abstract_md)。title 取不到则报错。"""
+    macros = _collect_simple_macros(tex_text)
     raw_title = _balanced_brace(tex_text, "title")
+    if raw_title:
+        raw_title = _expand_simple_macros(raw_title, macros)
     title = _strip_tex_format(raw_title) if raw_title else ""
     if not title:
         raise TexConvertError(
@@ -145,6 +185,8 @@ def _harvest_frontmatter(tex_text, tex_root, input_dir, bib_path):
         )
 
     raw_author = _balanced_brace(tex_text, "author")
+    if raw_author:
+        raw_author = _expand_simple_macros(raw_author, macros)
     author = _strip_tex_format(raw_author) if raw_author else ""
     if not author:
         _warn("frontmatter", "未解析到 \\author，作者信息将为空")
@@ -354,32 +396,97 @@ def _rasterize(src_path, images_dir, stem):
         return None
 
 
+def _clean_html_inline(text):
+    """剥离行内 HTML 标签（<span>/<strong> 等），保留文本与 math。"""
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _rasterize_image(src_abs, images_dir, seen_stems):
+    """栅格化/复制一张图到 images/，返回文件名（失败 None）。stem 去重。"""
+    stem = _slugify(os.path.splitext(os.path.basename(src_abs))[0])
+    base, n = stem, 1
+    while stem in seen_stems:
+        n += 1
+        stem = "%s-%d" % (base, n)
+    seen_stems.add(stem)
+    return _rasterize(src_abs, images_dir, stem)
+
+
 def _rewrite_images(md, input_dir, images_dir):
-    """遍历 ![cap](path)：栅格化到 images/，改写路径，收集 (filename, caption)。"""
+    """栅格化图片到 images/ 并改写为 Markdown，收集 (filename, caption)。
+    处理三种 Pandoc 产出：Markdown ![](path)、<figure><img/><figcaption/></figure>、独立 <img>。
+    Pandoc 对多图/带 caption 的 figure 会输出成 HTML <img>（而非 Markdown ![]），
+    早期只认 Markdown 正则会漏图（GQA 论文即此情况）。"""
     entries = []
     seen_stems = set()
 
-    def repl(m):
+    # 1) Markdown ![cap](path)
+    def md_repl(m):
         cap, path = m.group(1), m.group(2).strip()
-        if path.startswith("http://") or path.startswith("https://"):
+        if path.startswith(("http://", "https://")):
             return m.group(0)
         src_abs = os.path.join(input_dir, path)
         if not os.path.exists(src_abs):
             _warn("image", "找不到图片文件: %s（引用已移除）" % path)
             return ""
-        stem = _slugify(os.path.splitext(os.path.basename(path))[0])
-        base, n = stem, 1
-        while stem in seen_stems:
-            n += 1
-            stem = "%s-%d" % (base, n)
-        seen_stems.add(stem)
-        fname = _rasterize(src_abs, images_dir, stem)
+        fname = _rasterize_image(src_abs, images_dir, seen_stems)
         if not fname:
             return ""
         entries.append((fname, cap))
         return "![%s](images/%s)" % (cap, fname)
+    md = re.sub(r"!\[(.*?)\]\((.*?)\)", md_repl, md)
 
-    md = re.sub(r"!\[(.*?)\]\((.*?)\)", repl, md)
+    # 2) <figure>...</figure> 块（Pandoc 把多图/带 caption 的 figure 输出成 HTML）
+    def fig_repl(m):
+        block = m.group(0)
+        cap_m = re.search(r"<figcaption[^>]*>(.*?)</figcaption>", block, re.S)
+        cap = _clean_html_inline(cap_m.group(1)) if cap_m else ""
+        img_tags = re.findall(r"<img\b[^>]*>", block)
+        if not img_tags:
+            return cap  # 无 <img>（多为 TikZ 被 pandoc 丢弃）：保留 caption 文本作上下文
+        out = []
+        for tag in img_tags:
+            src_m = re.search(r'\bsrc=["\']([^"\']+)["\']', tag)
+            if not src_m or src_m.group(1).startswith(("http://", "https://")):
+                continue
+            src_abs = os.path.join(input_dir, src_m.group(1))
+            if not os.path.exists(src_abs):
+                _warn("image", "找不到图片文件: %s（引用已移除）" % src_m.group(1))
+                continue
+            alt_m = re.search(r'\balt=["\']([^"\']*)["\']', tag)
+            alt = alt_m.group(1) if alt_m else ""
+            fname = _rasterize_image(src_abs, images_dir, seen_stems)
+            if not fname:
+                continue
+            entries.append((fname, cap or alt))
+            out.append("![%s](images/%s)" % (cap or alt, fname))
+        return "\n\n".join(out)
+    md = re.sub(r"<figure\b[^>]*>.*?</figure>", fig_repl, md, flags=re.S)
+
+    # 3) 残余独立 <img ...>（不在 <figure> 里，如 Pandoc 包在 <div> 里的单图）
+    def img_repl(m):
+        tag = m.group(0)
+        src_m = re.search(r'\bsrc=["\']([^"\']+)["\']', tag)
+        if not src_m or src_m.group(1).startswith(("http://", "https://")):
+            return ""
+        src_abs = os.path.join(input_dir, src_m.group(1))
+        if not os.path.exists(src_abs):
+            _warn("image", "找不到图片文件: %s（引用已移除）" % src_m.group(1))
+            return ""
+        alt_m = re.search(r'\balt=["\']([^"\']*)["\']', tag)
+        alt = alt_m.group(1) if alt_m else ""
+        fname = _rasterize_image(src_abs, images_dir, seen_stems)
+        if not fname:
+            return ""
+        entries.append((fname, alt))
+        return "![%s](images/%s)" % (alt, fname)
+    md = re.sub(r"<img\b[^>]*>", img_repl, md)
+
+    # 4) 清理残余 <figure>/<figcaption> 标签（不匹配块的残片）
+    md = re.sub(r"</?(?:figure|figcaption)\b[^>]*>", "", md)
+
     return md, entries
 
 
