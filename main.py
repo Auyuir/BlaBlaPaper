@@ -451,6 +451,7 @@ def main():
             valid_filenames,
             config.MODEL_NAME_TEXT,
             checkpoint_dir=checkpoint_dir,
+            preserve_references=is_tex_input,
         )
         translation_title = f"{main_title} 原文翻译"
         write_translation_report(OUTPUT_DIR, translation_title, translation_content)

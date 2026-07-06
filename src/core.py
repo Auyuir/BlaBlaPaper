@@ -421,18 +421,68 @@ def split_markdown_for_translation(full_text, max_chars=8000):
     return segments
 
 
-def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=None):
-    """将论文原文逐段翻译为简体中文，保留图片/公式/引用/标题结构。走文本供应商。"""
-    cached = _load_text_checkpoint(checkpoint_dir, "translation_full")
+def _split_references_section(full_text):
+    """把全文按 References 章节拆为 (before, refs_section, after)。
+
+    章节范围：## References 标题 → 下一个同级/更高级标题、首个独立图片行、或文末。
+    未找到时返回 (full_text, None, "")。
+    """
+    m = re.search(r"(?m)^(#{1,6})\s+References\s*$", full_text, re.IGNORECASE)
+    if not m:
+        return full_text, None, ""
+    heading_level = len(m.group(1))
+    start = m.start()
+    rest = full_text[m.end():]
+    ends = []
+    next_heading = re.search(r"(?m)^#{1,%d}\s+\S" % heading_level, rest)
+    if next_heading:
+        ends.append(next_heading.start())
+    next_image = re.search(r"(?m)^!\[", rest)
+    if next_image:
+        ends.append(next_image.start())
+    if ends:
+        end = m.end() + min(ends)
+    else:
+        end = len(full_text)
+    return full_text[:start], full_text[start:end], full_text[end:]
+
+
+def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=None, preserve_references=False):
+    """将论文原文逐段翻译为简体中文，保留图片/公式/引用/标题结构。走文本供应商。
+
+    preserve_references=True 时，References 章节原文保留、不送 LLM（TeX 路径适用）。
+    """
+    full_ckpt = "translation_full_pr" if preserve_references else "translation_full"
+    cached = _load_text_checkpoint(checkpoint_dir, full_ckpt)
     if cached is not None:
         return cached
 
-    segments = split_markdown_for_translation(full_text)
-    logutil.log(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", "INFO")
+    # 参考文献章节原文保留：把全文拆为 before / refs / after，仅翻译 before+after。
+    refs_section = None
+    split_idx = None
+    seg_prefix = "translation_pr" if preserve_references else "translation"
+    if preserve_references:
+        before, refs_section, after = _split_references_section(full_text)
+        if refs_section is not None:
+            before_segs = split_markdown_for_translation(before)
+            after_segs = split_markdown_for_translation(after)
+            segments = before_segs + after_segs
+            split_idx = len(before_segs)
+        else:
+            segments = split_markdown_for_translation(full_text)
+    else:
+        segments = split_markdown_for_translation(full_text)
+
+    if refs_section is not None:
+        logutil.log(
+            f"--- [原文翻译] References 章节原文保留 ({len(refs_section)} 字符)，"
+            f"翻译剩余 {len(segments)} 段 (Model: {model_name}) ---", "INFO")
+    else:
+        logutil.log(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", "INFO")
 
     def worker(indexed):
         idx, seg = indexed
-        checkpoint_name = f"translation_{idx:02d}"
+        checkpoint_name = f"{seg_prefix}_{idx:02d}"
         cached_seg = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
         if cached_seg is not None:
             return cached_seg
@@ -455,8 +505,19 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
 
     indexed_items = list(enumerate(segments, 1))
     translated = _run_ordered_parallel("translation", indexed_items, worker)
-    result = "\n\n".join(t for t in translated if t)
-    return _save_text_checkpoint(checkpoint_dir, "translation_full", result)
+    if refs_section is not None:
+        before_result = "\n\n".join(t for t in translated[:split_idx] if t)
+        after_result = "\n\n".join(t for t in translated[split_idx:] if t)
+        parts = []
+        if before_result:
+            parts.append(before_result)
+        parts.append(refs_section)
+        if after_result:
+            parts.append(after_result)
+        result = "\n\n".join(parts)
+    else:
+        result = "\n\n".join(t for t in translated if t)
+    return _save_text_checkpoint(checkpoint_dir, full_ckpt, result)
 
 
 def generate_info_json_data(context_messages, model_name, additional_context=None, checkpoint_dir=None):
