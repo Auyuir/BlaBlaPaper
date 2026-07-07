@@ -282,6 +282,51 @@ def _inline_inputs(tex_text, base_dir, seen=None, depth=0):
     return re.sub(r"\\(?:input|include)\s*\{([^}]+)\}", repl, tex_text)
 
 
+def _strip_toggles(tex):
+    """预处理 \\newtoggle / \\iftoggle（pandoc 不识别 etoolbox toggle）。
+    \\newtoggle{name} 删除；\\iftoggle{name}{A}{B} 取 B（toggle 默认 false）。
+    需平衡匹配花括号。"""
+    tex = re.sub(r"\\newtoggle\s*\{[^}]*\}", "", tex)
+
+    def repl_iftoggle(m, text, start):
+        # 找到 {A}{B} 两段平衡花括号
+        i = start
+        branches = []
+        for _ in range(2):
+            while i < len(text) and text[i] != "{":
+                i += 1
+            if i >= len(text):
+                return None, i
+            depth = 0
+            for j in range(i, len(text)):
+                if text[j] == "{":
+                    depth += 1
+                elif text[j] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        branches.append(text[i + 1:j])
+                        i = j + 1
+                        break
+            else:
+                return None, i
+        # 取 false 分支（第二个花括号块）
+        return branches[1] if len(branches) == 2 else "", i
+
+    out = []
+    i = 0
+    while i < len(tex):
+        m = re.match(r"\\iftoggle\s*\{[^}]*\}", tex[i:])
+        if m:
+            replacement, new_i = repl_iftoggle(None, tex, i + m.end())
+            if replacement is not None:
+                out.append(replacement)
+                i = new_i
+                continue
+        out.append(tex[i])
+        i += 1
+    return "".join(out)
+
+
 def _convert_raw_citations(tex):
     """无 .bib 时，把 \\citep{x}/\\cite{x} 转成 [x]，避免被 pandoc 丢弃。"""
     return re.sub(r"\\cite[a-zA-Z]*\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}", lambda m: "[" + m.group(1) + "]", tex)
@@ -562,6 +607,9 @@ def convert(input_dir, assume_yes=False):
     except OSError as e:
         raise TexConvertError("read", "读取根文件失败: %s" % e, file=tex_root)
     tex_text = _inline_inputs(tex_text, input_dir)
+
+    # 2b. 预处理 toggle（pandoc 不识别 \iftoggle）
+    tex_text = _strip_toggles(tex_text)
 
     # 3. .bib
     bib_path = _find_bib(input_dir)
