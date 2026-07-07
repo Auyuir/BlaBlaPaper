@@ -61,27 +61,37 @@ def _save_json_checkpoint(checkpoint_dir, name, value):
     return value
 
 
-def _run_ordered_parallel(label, items, worker):
+def _run_ordered_parallel(label, items, worker, executor=None, pbar=None):
     if not items:
         return []
-    max_workers = min(config.LLM_MAX_WORKERS, len(items))
-    if max_workers <= 1:
-        return [worker(item) for item in items]
+    own_executor = executor is None
+    if own_executor:
+        max_workers = min(config.LLM_MAX_WORKERS, len(items))
+        if max_workers <= 1:
+            return [worker(item) for item in items]
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        logutil.log(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", "DEBUG")
+    else:
+        logutil.log(f"[parallel] {label}: shared-executor tasks={len(items)}", "DEBUG")
 
-    logutil.log(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", "DEBUG")
     results = [None] * len(items)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_idx = {
-            executor.submit(worker, item): idx
-            for idx, item in enumerate(items)
-        }
+    future_to_idx = {
+        executor.submit(worker, item): idx
+        for idx, item in enumerate(items)
+    }
+    try:
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
                 results[idx] = future.result()
             except Exception as e:
-                logutil.log(f"[parallel] {label}: task={idx + 1} failed: {e}", "ERROR")
+                logutil.log(f"[parallel] {label}: task={idx + 1} failed: {e}", "ERROR", stage=label)
                 results[idx] = None
+            if pbar is not None:
+                pbar.update(1)
+    finally:
+        if own_executor:
+            executor.shutdown(wait=True)
     return results
 
 
@@ -142,7 +152,7 @@ def extract_tech_points(context_messages, model_name, checkpoint_dir=None):
     if cached is not None:
         return cached
 
-    logutil.log(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---", "INFO")
+    logutil.log(f"\n--- [核心技术提取] 正在提取关键技术点列表 (Model: {model_name}) ---", "INFO", stage="tech_points")
 
     # [Structured Output] 提示词中必须包含 'JSON' 关键词
     prompt = """
@@ -244,7 +254,7 @@ def analyze_bibliographic_info(info_data):
     return "\n\n".join(parts) if parts else "未能提取到论文基本信息。"
 
 
-def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None):
+def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None, executor=None, pbar=None):
     """
     基于已提取的点生成技术深挖报告
     """
@@ -255,7 +265,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
     if not innovation_data:
         return "未能提取到核心技术细节。"
 
-    logutil.log(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---", "INFO")
+    logutil.log(f"\n--- [核心技术细节] 开始深度挖掘 (Model: {model_name}) ---", "INFO", stage="tech_deep_dive")
     sections = []
 
     summary = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary")
@@ -284,7 +294,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
         if cached_detail is not None:
             return f"### {idx}. {name}\n\n{cached_detail}\n"
 
-        logutil.log(f"   -> Tech Deep Dive: {name} ...", "INFO")
+        logutil.log(f"   -> Tech Deep Dive: {name} ...", "INFO", stage="tech_deep_dive")
         prompt = f"""
         任务：深度剖析技术细节 **"{name}"**。
         参考线索：{ctx}
@@ -305,11 +315,11 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
         _save_text_checkpoint(checkpoint_dir, checkpoint_name, detail)
         return f"### {idx}. {name}\n\n{detail}\n"
 
-    sections.extend(item for item in _run_ordered_parallel("tech_deep_dive", indexed_items, build_detail) if item)
+    sections.extend(item for item in _run_ordered_parallel("tech_deep_dive", indexed_items, build_detail, executor=executor, pbar=pbar) if item)
     result = "\n".join(sections)
     return _save_text_checkpoint(checkpoint_dir, "tech_deep_dive", result)
 
-def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None):
+def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames, model_name, caption_map, checkpoint_dir=None, executor=None, pbar=None):
     """
     [新增] 生成通俗易懂的解释报告
     """
@@ -317,7 +327,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
     if cached is not None:
         return cached
 
-    logutil.log(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", "INFO")
+    logutil.log(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", "INFO", stage="eli5")
     sections = []
 
     overall_res = _load_text_checkpoint(checkpoint_dir, "eli5_00_overall")
@@ -354,7 +364,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         if cached_detail is not None:
             return f"### {idx}. {name}\n\n{cached_detail}\n"
 
-        logutil.log(f"   -> 通俗解释: {name} ...", "INFO")
+        logutil.log(f"   -> 通俗解释: {name} ...", "INFO", stage="eli5")
         prompt = f"""
         {prompts.ELI5_ROLE_PROMPT}
 
@@ -374,7 +384,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)
         return f"### {idx}. {name}\n\n{res}\n"
 
-    sections.extend(item for item in _run_ordered_parallel("eli5_details", indexed_items, build_eli5) if item)
+    sections.extend(item for item in _run_ordered_parallel("eli5_details", indexed_items, build_eli5, executor=executor, pbar=pbar) if item)
     result = "\n".join(sections)
     return _save_text_checkpoint(checkpoint_dir, "eli5_notes_body", result)
 
@@ -447,7 +457,7 @@ def _split_references_section(full_text):
     return full_text[:start], full_text[start:end], full_text[end:]
 
 
-def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=None, preserve_references=False):
+def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=None, preserve_references=False, executor=None, pbar=None):
     """将论文原文逐段翻译为简体中文，保留图片/公式/引用/标题结构。走文本供应商。
 
     preserve_references=True 时，References 章节原文保留、不送 LLM（TeX 路径适用）。
@@ -476,9 +486,9 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
     if refs_section is not None:
         logutil.log(
             f"--- [原文翻译] References 章节原文保留 ({len(refs_section)} 字符)，"
-            f"翻译剩余 {len(segments)} 段 (Model: {model_name}) ---", "INFO")
+            f"翻译剩余 {len(segments)} 段 (Model: {model_name}) ---", "INFO", stage="translation")
     else:
-        logutil.log(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", "INFO")
+        logutil.log(f"\n--- [原文翻译] 开始逐段翻译 (Model: {model_name})，共 {len(segments)} 段 ---", "INFO", stage="translation")
 
     def worker(indexed):
         idx, seg = indexed
@@ -486,7 +496,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
         cached_seg = _load_text_checkpoint(checkpoint_dir, checkpoint_name)
         if cached_seg is not None:
             return cached_seg
-        logutil.log(f"   -> 翻译第 {idx}/{len(segments)} 段 ...", "INFO")
+        logutil.log(f"   -> 翻译第 {idx}/{len(segments)} 段 ...", "INFO", stage="translation")
         messages = [
             {"role": "system", "content": config.UNIFIED_SYSTEM_PROMPT},
             {"role": "user", "content": utils.format_document_content(seg)},
@@ -504,7 +514,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
         return _save_text_checkpoint(checkpoint_dir, checkpoint_name, res)
 
     indexed_items = list(enumerate(segments, 1))
-    translated = _run_ordered_parallel("translation", indexed_items, worker)
+    translated = _run_ordered_parallel("translation", indexed_items, worker, executor=executor, pbar=pbar)
     if refs_section is not None:
         before_result = "\n\n".join(t for t in translated[:split_idx] if t)
         after_result = "\n\n".join(t for t in translated[split_idx:] if t)
@@ -567,7 +577,7 @@ def analyze_section(title, task_prompt, context_messages, valid_filenames, model
     if cached is not None:
         return cached
 
-    logutil.log(f"--- 正在分析: {title} ---", "INFO")
+    logutil.log(f"--- 正在分析: {title} ---", "INFO", stage=checkpoint_name or f"section_{title}")
     full_prompt = f"{task_prompt}\n{prompts.GLOBAL_STYLE_PROMPT}"
     res = llm_client.call_llm_with_cache(
         context_messages,
@@ -590,7 +600,7 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
     if cached is not None:
         return cached
 
-    logutil.log(f"   -> 单图分析: {filename} ...", "INFO")
+    logutil.log(f"   -> 单图分析: {filename} ...", "INFO", stage="figures")
 
     prompt = f"""
     任务：详细分析图片 {filename}。
@@ -628,5 +638,5 @@ def analyze_single_figure_isolated(image_path, full_text, valid_filenames, model
         result = utils.correct_image_references(raw, valid_filenames, None)
         return _save_text_checkpoint(checkpoint_dir, checkpoint_name, result)
     except Exception as e:
-        logutil.log(f"图表分析失败: {e}", "ERROR")
+        logutil.log(f"图表分析失败: {e}", "ERROR", stage="figures")
         return None

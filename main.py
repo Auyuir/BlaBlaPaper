@@ -4,6 +4,7 @@ Paper Analyzer - 论文分析工具主入口
 模块化重构版本
 """
 import argparse
+import threading
 import os
 import sys
 import shutil
@@ -13,6 +14,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src import logutil
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 
 REPORT_MARKDOWN_FILES = ("paper_notes.md", "ELI5_notes.md", "figs_notes.md", "translation_notes.md")
@@ -27,8 +33,8 @@ REPORT_SECTION_ORDER = (
 )
 
 
-def log(message, level="INFO"):
-    logutil.log(message, level)
+def log(message, level="INFO", stage=None):
+    logutil.log(message, level, stage=stage)
 
 
 def write_progress(output_dir, stage, status="running", error=None):
@@ -187,6 +193,8 @@ def main():
     is_pdf_input = False  # 仅 PDF 模式才重命名输入目录
     is_tex_input = False  # TeX 模式产生临时工作目录，需在 finally 清理
     tex_work_dir = None  # TeX 转换出的临时工作目录路径
+
+    shared_executor = None  # 共享线程池，Phase 1/3 创建，finally 中兜底关闭
 
     try:
         if os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
@@ -386,15 +394,16 @@ def main():
                     checkpoint_dir=checkpoint_dir,
                 ),
             ),
-        ]
+       ]
 
         tech_points = []
-        max_workers = min(config.LLM_MAX_WORKERS, len(analysis_tasks))
-        log(f"[parallel] main_analysis: workers={max_workers} tasks={len(analysis_tasks)}", "DEBUG")
+        shared_executor = ThreadPoolExecutor(max_workers=config.LLM_MAX_WORKERS)
+        pbar_p1 = tqdm(total=len(analysis_tasks), desc="主线分析", position=0,
+                       dynamic_ncols=True, leave=True) if tqdm else None
         write_progress(OUTPUT_DIR, "main_analysis")
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        try:
             future_to_task = {
-                executor.submit(task_fn): (task_type, key)
+                shared_executor.submit(task_fn): (task_type, key)
                 for task_type, key, task_fn in analysis_tasks
             }
             for future in as_completed(future_to_task):
@@ -402,18 +411,26 @@ def main():
                 try:
                     value = future.result()
                 except Exception as e:
-                    log(f"[parallel] main_analysis: {key} failed: {e}", "ERROR")
+                    log(f"[parallel] main_analysis: {key} failed: {e}", "ERROR", stage="main_analysis")
                     value = [] if task_type == "tech_points" else None
 
                 if task_type == "tech_points":
                     tech_points = value or []
-                    log(f"[parallel] main_analysis: tech_points done count={len(tech_points)}")
+                    logutil.write(f"[parallel] main_analysis: tech_points done count={len(tech_points)}")
                 else:
                     results[key] = value
                     write_paper_report(OUTPUT_DIR, main_title, results)
-                    log(f"[parallel] main_analysis: {key} done", "DEBUG")
+                    log(f"[parallel] main_analysis: {key} done", "DEBUG", stage="main_analysis")
+                if pbar_p1 is not None:
+                    pbar_p1.update(1)
+        finally:
+            if pbar_p1 is not None:
+                pbar_p1.close()
 
         write_progress(OUTPUT_DIR, "tech_deep_dive")
+        n_tech = len(tech_points) + 1  # +1 for summary
+        pbar_p2 = tqdm(total=n_tech, desc="技术深挖", position=0,
+                       dynamic_ncols=True, leave=True) if tqdm else None
         results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
             full_context,
             tech_points,
@@ -421,85 +438,128 @@ def main():
             config.MODEL_NAME_TEXT,
             caption_map,
             checkpoint_dir=checkpoint_dir,
+            executor=shared_executor,
+            pbar=pbar_p2,
         )
+        if pbar_p2 is not None:
+            pbar_p2.close()
         write_paper_report(OUTPUT_DIR, main_title, results)
 
         write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
         remove_partial_report(OUTPUT_DIR, "paper_notes")
         log("✅ 主报告已保存")
 
-        write_progress(OUTPUT_DIR, "eli5")
-        eli5_content = core.analyze_eli5_innovations(
-            full_context,
-            tech_points,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            caption_map,
-            checkpoint_dir=checkpoint_dir,
-        )
-
-        eli5_title = f"{main_title} 通俗讲解"
-        write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content)
-        write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content, filename="ELI5_notes.md")
-        remove_partial_report(OUTPUT_DIR, "ELI5_notes")
-        log("✅ 通俗解释报告已保存: ELI5_notes.md")
-
-        # 原文翻译：基于 MinerU 原文 md 逐段翻译，保留图片/公式/结构，走文本供应商。
-        write_progress(OUTPUT_DIR, "translation")
-        translation_content = core.translate_markdown(
-            full_text,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            checkpoint_dir=checkpoint_dir,
-            preserve_references=is_tex_input,
-        )
-        translation_title = f"{main_title} 原文翻译"
-        write_translation_report(OUTPUT_DIR, translation_title, translation_content)
-        write_translation_report(OUTPUT_DIR, translation_title, translation_content, filename="translation_notes.md")
-        remove_partial_report(OUTPUT_DIR, "translation_notes")
-        log("✅ 原文翻译报告已保存: translation_notes.md")
-
-        # 保存图表报告：逐图 checkpoint，并按原始图片顺序组装最终报告。
-        write_progress(OUTPUT_DIR, "figures")
+        # === Phase 3: ELI5 / 翻译 / 图表 三阶段并发 ===
+        # 三个阶段互不依赖（都只依赖 full_text/tech_points/images），
+        # 用独立协调线程并发驱动，各自的任务提交到共享线程池。
+        write_progress(OUTPUT_DIR, "phase3")
         unique_imgs = sorted(list(set(new_img_paths)), key=new_img_paths.index)
+        n_eli5 = len(tech_points) + 1
+
+        # 先计算 translation 段数（需与 translate_markdown 内部切分一致）
+        if is_tex_input:
+            before, refs_section, after = core._split_references_section(full_text)
+            if refs_section is not None:
+                n_trans = len(core.split_markdown_for_translation(before)) + \
+                          len(core.split_markdown_for_translation(after))
+            else:
+                n_trans = len(core.split_markdown_for_translation(full_text))
+        else:
+            n_trans = len(core.split_markdown_for_translation(full_text))
+        n_fig = len(unique_imgs)
+
+        pbar_eli5 = tqdm(total=n_eli5, desc="ELI5   ", position=0,
+                         dynamic_ncols=True, leave=True) if tqdm and n_eli5 else None
+        pbar_trans = tqdm(total=n_trans, desc="翻译   ", position=1,
+                          dynamic_ncols=True, leave=True) if tqdm and n_trans else None
+        pbar_fig = tqdm(total=n_fig, desc="图表   ", position=2,
+                        dynamic_ncols=True, leave=True) if tqdm and n_fig else None
+
+        phase3_errors = []
+        eli5_content = [None]
+        translation_content = [None]
         figure_sections = [None] * len(unique_imgs)
 
-        def analyze_figure(index, img_path):
-            fname = os.path.basename(img_path)
-            caption = caption_map.get(fname, "")
-            res = core.analyze_single_figure_isolated(
-                img_path,
-                full_text,
-                valid_filenames,
-                config.MODEL_NAME_IMAGE,
-                caption,
-                checkpoint_dir=checkpoint_dir,
-            )
-            if not res:
-                return index, None
-            section = f"### {caption or fname}\n\n![{fname}](images/{fname})\n\n{res}\n\n"
-            return index, section
+        def run_eli5():
+            try:
+                eli5_content[0] = core.analyze_eli5_innovations(
+                    full_context, tech_points, valid_filenames,
+                    config.MODEL_NAME_TEXT, caption_map,
+                    checkpoint_dir=checkpoint_dir,
+                    executor=shared_executor, pbar=pbar_eli5,
+                )
+                eli5_title = f"{main_title} 通俗讲解"
+                write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content[0])
+                write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content[0], filename="ELI5_notes.md")
+                remove_partial_report(OUTPUT_DIR, "ELI5_notes")
+                logutil.write("✅ 通俗解释报告已保存: ELI5_notes.md")
+            except Exception as e:
+                phase3_errors.append(("eli5", e))
+                log(f"❌ ELI5 阶段失败: {e}", "ERROR", stage="eli5")
 
-        fig_workers = min(config.LLM_MAX_WORKERS, len(unique_imgs)) if unique_imgs else 1
-        log(f"[parallel] figures: workers={fig_workers} tasks={len(unique_imgs)}", "DEBUG")
-        with ThreadPoolExecutor(max_workers=fig_workers) as executor:
-            future_to_idx = {
-                executor.submit(analyze_figure, idx, img_path): idx
-                for idx, img_path in enumerate(unique_imgs)
-            }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    _, section = future.result()
-                    figure_sections[idx] = section
-                    log(f"[parallel] figures: done {idx + 1}/{len(unique_imgs)}")
-                except Exception as e:
-                    log(f"[parallel] figures: task={idx + 1} failed: {e}", "ERROR")
-                write_fig_report(OUTPUT_DIR, main_title, figure_sections)
+        def run_translation():
+            try:
+                translation_content[0] = core.translate_markdown(
+                    full_text, valid_filenames, config.MODEL_NAME_TEXT,
+                    checkpoint_dir=checkpoint_dir,
+                    preserve_references=is_tex_input,
+                    executor=shared_executor, pbar=pbar_trans,
+                )
+                translation_title = f"{main_title} 原文翻译"
+                write_translation_report(OUTPUT_DIR, translation_title, translation_content[0])
+                write_translation_report(OUTPUT_DIR, translation_title, translation_content[0], filename="translation_notes.md")
+                remove_partial_report(OUTPUT_DIR, "translation_notes")
+                logutil.write("✅ 原文翻译报告已保存: translation_notes.md")
+            except Exception as e:
+                phase3_errors.append(("translation", e))
+                log(f"❌ 翻译阶段失败: {e}", "ERROR", stage="translation")
 
-        write_fig_report(OUTPUT_DIR, main_title, figure_sections, filename="figs_notes.md")
-        remove_partial_report(OUTPUT_DIR, "figs_notes")
-        log("✅ 图表报告已保存")
+        def run_figures():
+            try:
+                def analyze_figure(indexed):
+                    idx, img_path = indexed
+                    fname = os.path.basename(img_path)
+                    caption = caption_map.get(fname, "")
+                    res = core.analyze_single_figure_isolated(
+                        img_path, full_text, valid_filenames,
+                        config.MODEL_NAME_IMAGE, caption,
+                        checkpoint_dir=checkpoint_dir,
+                    )
+                    if not res:
+                        return idx, None
+                    section = f"### {caption or fname}\n\n![{fname}](images/{fname})\n\n{res}\n\n"
+                    return idx, section
+
+                indexed_items = list(enumerate(unique_imgs))
+                results = core._run_ordered_parallel(
+                    "figures", indexed_items, analyze_figure,
+                    executor=shared_executor, pbar=pbar_fig,
+                )
+                for idx, section in results:
+                    if section:
+                        figure_sections[idx] = section
+                write_fig_report(OUTPUT_DIR, main_title, figure_sections, filename="figs_notes.md")
+                remove_partial_report(OUTPUT_DIR, "figs_notes")
+                logutil.write("✅ 图表报告已保存")
+            except Exception as e:
+                phase3_errors.append(("figures", e))
+                log(f"❌ 图表阶段失败: {e}", "ERROR", stage="figures")
+
+        t_eli5 = threading.Thread(target=run_eli5, name="phase3-eli5")
+        t_trans = threading.Thread(target=run_translation, name="phase3-translation")
+        t_fig = threading.Thread(target=run_figures, name="phase3-figures")
+        t_eli5.start()
+        t_trans.start()
+        t_fig.start()
+        t_eli5.join()
+        t_trans.join()
+        t_fig.join()
+
+        for pbar in (pbar_eli5, pbar_trans, pbar_fig):
+            if pbar is not None:
+                pbar.close()
+
+        shared_executor.shutdown(wait=True)
         write_progress(OUTPUT_DIR, "reports", status="done")
 
         # 运行摘要
@@ -538,7 +598,13 @@ def main():
                 log(f"⚠️  重命名输入文件夹失败: {e}，文件夹保持原名称", "WARN")
 
     finally:
-        # 清理临时 ZIP 文件
+       # 清理临时 ZIP 文件
+        # 兜底关闭共享线程池（异常退出时可能尚未 shutdown）
+        if shared_executor is not None:
+            try:
+                shared_executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
         if zip_path and os.path.exists(zip_path):
             try:
                 os.remove(zip_path)

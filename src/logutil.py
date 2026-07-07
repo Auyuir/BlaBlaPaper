@@ -43,13 +43,13 @@ def set_log_file(path):
         _log_file.flush()
 
 
-def log(msg, level="INFO"):
+def log(msg, level="INFO", stage=None):
     """level <= stdout 门槛则打 stdout；始终追加到日志文件（带时间戳）。"""
     lv = _LEVELS.get(str(level).upper(), _DEFAULT)
     with _lock:
         if lv <= _verbosity:
             print(msg, flush=True)
-        file_line = f"[{time.strftime('%H:%M:%S')}] {msg}\n"
+        file_line = f"[{time.strftime('%H:%M:%S')}] {msg}\n" if stage is None else f"[{time.strftime('%H:%M:%S')}] [{stage}] {msg}\n"
         if _log_file is not None:
             _log_file.write(file_line)
             _log_file.flush()
@@ -62,3 +62,22 @@ def progress(msg):
     with _lock:
         sys.stdout.write(msg)
         sys.stdout.flush()
+
+
+def write(msg, level="INFO"):
+    """tqdm.write 封装：在多行进度条不撕裂的前提下打印一行文本（同时进文件）。
+    用于里程碑日志（✅/⚠️/❌）穿插在 tqdm bar 之间。"""
+    lv = _LEVELS.get(str(level).upper(), _DEFAULT)
+    with _lock:
+        file_line = f"[{time.strftime('%H:%M:%S')}] {msg}\n"
+        if _log_file is not None:
+            _log_file.write(file_line)
+            _log_file.flush()
+        else:
+            _buffer.append(file_line)
+    if lv <= _verbosity:
+        try:
+            import tqdm as _tqdm
+            _tqdm.tqdm.write(msg)
+        except ImportError:
+            print(msg, flush=True)
