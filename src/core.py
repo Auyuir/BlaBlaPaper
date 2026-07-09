@@ -288,6 +288,8 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
         )
         summary = utils.correct_image_references(summary, valid_filenames, caption_map)
         _save_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary", summary)
+    if pbar is not None:
+        pbar.update(1)
     sections.append(f"### 0. 技术架构概览\n\n{summary}\n")
 
     indexed_items = list(enumerate(innovation_data, 1))
@@ -360,6 +362,8 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         )
         overall_res = utils.correct_image_references(overall_res, valid_filenames, caption_map)
         _save_text_checkpoint(checkpoint_dir, "eli5_00_overall", overall_res)
+    if pbar is not None:
+        pbar.update(1)
     sections.append(f"### 0. 整体创新点通俗解读\n\n{overall_res}\n")
 
     indexed_items = list(enumerate(innovation_data, 1))

@@ -400,7 +400,7 @@ def main():
         shared_executor = ThreadPoolExecutor(max_workers=config.LLM_MAX_WORKERS)
         logutil.set_bars_active(True)
         _bar_fmt = "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]"
-        pbar_p1 = tqdm(total=len(analysis_tasks), desc="主线分析", position=0,
+        pbar_p1 = tqdm(total=len(analysis_tasks), desc="通读分析", position=0,
                        dynamic_ncols=True, leave=False, bar_format=_bar_fmt) if tqdm else None
         write_progress(OUTPUT_DIR, "main_analysis")
         try:
@@ -430,38 +430,13 @@ def main():
                 pbar_p1.close()
         logutil.set_bars_active(False)
 
-        write_progress(OUTPUT_DIR, "tech_deep_dive")
-        n_tech = len(tech_points) + 1  # +1 for summary
-        logutil.set_bars_active(True)
-        pbar_p2 = tqdm(total=n_tech, desc="技术深挖", position=0,
-                       dynamic_ncols=True, leave=False, bar_format=_bar_fmt) if tqdm else None
-        results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
-            full_context,
-            tech_points,
-            valid_filenames,
-            config.MODEL_NAME_TEXT,
-            caption_map,
-            checkpoint_dir=checkpoint_dir,
-            executor=shared_executor,
-            pbar=pbar_p2,
-        )
-        if pbar_p2 is not None:
-            pbar_p2.close()
-        logutil.set_bars_active(False)
-        write_paper_report(OUTPUT_DIR, main_title, results)
-
-        write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
-        remove_partial_report(OUTPUT_DIR, "paper_notes")
-        log("✅ 主报告已保存")
-
-        # === Phase 3: ELI5 / 翻译 / 图表 三阶段并发 ===
-        # 三个阶段互不依赖（都只依赖 full_text/tech_points/images），
-        # 用独立协调线程并发驱动，各自的任务提交到共享线程池。
-        write_progress(OUTPUT_DIR, "phase3")
+        # === Phase 2: 深挖 / ELI5 / 翻译 / 图表 四阶段并发 ===
+        # 都只依赖 Phase 1 的 tech_points / full_text / images，互不依赖。
+        write_progress(OUTPUT_DIR, "phase2")
         unique_imgs = sorted(list(set(new_img_paths)), key=new_img_paths.index)
+        n_deep = len(tech_points) + 1
         n_eli5 = len(tech_points) + 1
 
-        # 先计算 translation 段数（需与 translate_markdown 内部切分一致）
         if is_tex_input:
             before, refs_section, after = core._split_references_section(full_text)
             if refs_section is not None:
@@ -474,17 +449,35 @@ def main():
         n_fig = len(unique_imgs)
 
         logutil.set_bars_active(True)
-        pbar_eli5 = tqdm(total=n_eli5, desc="ELI5   ", position=0,
+        pbar_deep = tqdm(total=n_deep, desc="深挖   ", position=0,
+                         dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_deep else None
+        pbar_eli5 = tqdm(total=n_eli5, desc="ELI5  ", position=1,
                          dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_eli5 else None
-        pbar_trans = tqdm(total=n_trans, desc="翻译   ", position=1,
+        pbar_trans = tqdm(total=n_trans, desc="翻译  ", position=2,
                           dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_trans else None
-        pbar_fig = tqdm(total=n_fig, desc="图表   ", position=2,
+        pbar_fig = tqdm(total=n_fig, desc="图表  ", position=3,
                         dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_fig else None
 
-        phase3_errors = []
+        phase2_errors = []
         eli5_content = [None]
         translation_content = [None]
         figure_sections = [None] * len(unique_imgs)
+
+        def run_deep_dive():
+            try:
+                results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
+                    full_context, tech_points, valid_filenames,
+                    config.MODEL_NAME_TEXT, caption_map,
+                    checkpoint_dir=checkpoint_dir,
+                    executor=shared_executor, pbar=pbar_deep,
+                )
+                write_paper_report(OUTPUT_DIR, main_title, results)
+                write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
+                remove_partial_report(OUTPUT_DIR, "paper_notes")
+                logutil.write("✅ 主报告已保存")
+            except Exception as e:
+                phase2_errors.append(("deep_dive", e))
+                log(f"❌ 深挖阶段失败: {e}", "ERROR", stage="tech_deep_dive")
 
         def run_eli5():
             try:
@@ -500,7 +493,7 @@ def main():
                 remove_partial_report(OUTPUT_DIR, "ELI5_notes")
                 logutil.write("✅ 通俗解释报告已保存: ELI5_notes.md")
             except Exception as e:
-                phase3_errors.append(("eli5", e))
+                phase2_errors.append(("eli5", e))
                 log(f"❌ ELI5 阶段失败: {e}", "ERROR", stage="eli5")
 
         def run_translation():
@@ -517,7 +510,7 @@ def main():
                 remove_partial_report(OUTPUT_DIR, "translation_notes")
                 logutil.write("✅ 原文翻译报告已保存: translation_notes.md")
             except Exception as e:
-                phase3_errors.append(("translation", e))
+                phase2_errors.append(("translation", e))
                 log(f"❌ 翻译阶段失败: {e}", "ERROR", stage="translation")
 
         def run_figures():
@@ -548,20 +541,23 @@ def main():
                 remove_partial_report(OUTPUT_DIR, "figs_notes")
                 logutil.write("✅ 图表报告已保存")
             except Exception as e:
-                phase3_errors.append(("figures", e))
+                phase2_errors.append(("figures", e))
                 log(f"❌ 图表阶段失败: {e}", "ERROR", stage="figures")
 
-        t_eli5 = threading.Thread(target=run_eli5, name="phase3-eli5")
-        t_trans = threading.Thread(target=run_translation, name="phase3-translation")
-        t_fig = threading.Thread(target=run_figures, name="phase3-figures")
+        t_deep = threading.Thread(target=run_deep_dive, name="phase2-deep_dive")
+        t_eli5 = threading.Thread(target=run_eli5, name="phase2-eli5")
+        t_trans = threading.Thread(target=run_translation, name="phase2-translation")
+        t_fig = threading.Thread(target=run_figures, name="phase2-figures")
+        t_deep.start()
         t_eli5.start()
         t_trans.start()
         t_fig.start()
+        t_deep.join()
         t_eli5.join()
         t_trans.join()
         t_fig.join()
 
-        for pbar in (pbar_eli5, pbar_trans, pbar_fig):
+        for pbar in (pbar_deep, pbar_eli5, pbar_trans, pbar_fig):
             if pbar is not None:
                 pbar.close()
 
