@@ -194,7 +194,8 @@ def main():
     is_tex_input = False  # TeX 模式产生临时工作目录，需在 finally 清理
     tex_work_dir = None  # TeX 转换出的临时工作目录路径
 
-    shared_executor = None  # 共享线程池，Phase 1/3 创建，finally 中兜底关闭
+    text_executor = None    # 文本模型线程池
+    image_executor = None   # 图片模型线程池
 
     try:
         if os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
@@ -397,7 +398,8 @@ def main():
        ]
 
         tech_points = []
-        shared_executor = ThreadPoolExecutor(max_workers=config.LLM_MAX_WORKERS)
+        text_executor = ThreadPoolExecutor(max_workers=config.TEXT_MAX_WORKERS)
+        image_executor = ThreadPoolExecutor(max_workers=config.IMAGE_MAX_WORKERS)
         logutil.set_bars_active(True)
         _bar_fmt = "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]"
         pbar_p1 = tqdm(total=len(analysis_tasks), desc="通读分析", position=0,
@@ -405,7 +407,7 @@ def main():
         write_progress(OUTPUT_DIR, "main_analysis")
         try:
             future_to_task = {
-                shared_executor.submit(task_fn): (task_type, key)
+                text_executor.submit(task_fn): (task_type, key)
                 for task_type, key, task_fn in analysis_tasks
             }
             for future in as_completed(future_to_task):
@@ -469,7 +471,7 @@ def main():
                     full_context, tech_points, valid_filenames,
                     config.MODEL_NAME_TEXT, caption_map,
                     checkpoint_dir=checkpoint_dir,
-                    executor=shared_executor, pbar=pbar_deep,
+                    executor=text_executor, pbar=pbar_deep,
                 )
                 write_paper_report(OUTPUT_DIR, main_title, results)
                 write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
@@ -485,7 +487,7 @@ def main():
                     full_context, tech_points, valid_filenames,
                     config.MODEL_NAME_TEXT, caption_map,
                     checkpoint_dir=checkpoint_dir,
-                    executor=shared_executor, pbar=pbar_eli5,
+                    executor=text_executor, pbar=pbar_eli5,
                 )
                 eli5_title = f"{main_title} 通俗讲解"
                 write_eli5_report(OUTPUT_DIR, eli5_title, eli5_content[0])
@@ -502,7 +504,7 @@ def main():
                     full_text, valid_filenames, config.MODEL_NAME_TEXT,
                     checkpoint_dir=checkpoint_dir,
                     preserve_references=is_tex_input,
-                    executor=shared_executor, pbar=pbar_trans,
+                    executor=text_executor, pbar=pbar_trans,
                 )
                 translation_title = f"{main_title} 原文翻译"
                 write_translation_report(OUTPUT_DIR, translation_title, translation_content[0])
@@ -532,7 +534,7 @@ def main():
                 indexed_items = list(enumerate(unique_imgs))
                 results = core._run_ordered_parallel(
                     "figures", indexed_items, analyze_figure,
-                    executor=shared_executor, pbar=pbar_fig,
+                    executor=image_executor, pbar=pbar_fig,
                 )
                 for idx, section in results:
                     if section:
@@ -562,7 +564,8 @@ def main():
                 pbar.close()
 
         logutil.set_bars_active(False)
-        shared_executor.shutdown(wait=True)
+        text_executor.shutdown(wait=True)
+        image_executor.shutdown(wait=True)
         write_progress(OUTPUT_DIR, "reports", status="done")
 
         # 运行摘要
@@ -601,13 +604,18 @@ def main():
                 log(f"⚠️  重命名输入文件夹失败: {e}，文件夹保持原名称", "WARN")
 
     finally:
-       # 清理临时 ZIP 文件
-        # 兜底关闭共享线程池（异常退出时可能尚未 shutdown）
-        if shared_executor is not None:
+        # 兜底关闭线程池（异常退出时可能尚未 shutdown）
+        if text_executor is not None:
             try:
-                shared_executor.shutdown(wait=False, cancel_futures=True)
+                text_executor.shutdown(wait=False, cancel_futures=True)
             except Exception:
                 pass
+        if image_executor is not None:
+            try:
+                image_executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+        # 清理临时 ZIP 文件
         if zip_path and os.path.exists(zip_path):
             try:
                 os.remove(zip_path)

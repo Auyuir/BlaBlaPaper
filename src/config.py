@@ -146,7 +146,8 @@ MODEL_REASONING_EFFORT = _env("MODEL_REASONING_EFFORT", default="medium")
 LLM_CONNECT_TIMEOUT = _env_int("LLM_CONNECT_TIMEOUT", default=20)
 LLM_READ_TIMEOUT = _env_int("LLM_READ_TIMEOUT", default=300)
 LLM_MAX_RETRIES = _env_int("LLM_MAX_RETRIES", default=3)
-LLM_MAX_WORKERS = max(1, _env_int("LLM_MAX_WORKERS", default=2))
+TEXT_MAX_WORKERS = max(1, _env_int("TEXT_MAX_WORKERS", default=2))
+IMAGE_MAX_WORKERS = max(1, _env_int("IMAGE_MAX_WORKERS", default=2))
 
 if not API_KEY:
     raise ValueError(

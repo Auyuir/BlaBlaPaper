@@ -66,7 +66,7 @@ def _run_ordered_parallel(label, items, worker, executor=None, pbar=None):
         return []
     own_executor = executor is None
     if own_executor:
-        max_workers = min(config.LLM_MAX_WORKERS, len(items))
+        max_workers = min(config.TEXT_MAX_WORKERS, len(items))
         if max_workers <= 1:
             results = []
             for item in items:
