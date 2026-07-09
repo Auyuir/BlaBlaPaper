@@ -68,7 +68,12 @@ def _run_ordered_parallel(label, items, worker, executor=None, pbar=None):
     if own_executor:
         max_workers = min(config.LLM_MAX_WORKERS, len(items))
         if max_workers <= 1:
-            return [worker(item) for item in items]
+            results = []
+            for item in items:
+                results.append(worker(item))
+                if pbar is not None:
+                    pbar.update(1)
+            return results
         executor = ThreadPoolExecutor(max_workers=max_workers)
         logutil.log(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", "DEBUG")
     else:
@@ -260,6 +265,8 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
     """
     cached = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive")
     if cached is not None:
+        if pbar is not None:
+            pbar.update(pbar.total)
         return cached
 
     if not innovation_data:
@@ -325,6 +332,8 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
     """
     cached = _load_text_checkpoint(checkpoint_dir, "eli5_notes_body")
     if cached is not None:
+        if pbar is not None:
+            pbar.update(pbar.total)
         return cached
 
     logutil.log(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", "INFO", stage="eli5")
@@ -465,6 +474,8 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
     full_ckpt = "translation_full_pr" if preserve_references else "translation_full"
     cached = _load_text_checkpoint(checkpoint_dir, full_ckpt)
     if cached is not None:
+        if pbar is not None:
+            pbar.update(pbar.total)
         return cached
 
     # 参考文献章节原文保留：把全文拆为 before / refs / after，仅翻译 before+after。

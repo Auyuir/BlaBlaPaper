@@ -398,8 +398,10 @@ def main():
 
         tech_points = []
         shared_executor = ThreadPoolExecutor(max_workers=config.LLM_MAX_WORKERS)
+        logutil.set_bars_active(True)
+        _bar_fmt = "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]"
         pbar_p1 = tqdm(total=len(analysis_tasks), desc="主线分析", position=0,
-                       dynamic_ncols=True, leave=True) if tqdm else None
+                       dynamic_ncols=True, leave=False, bar_format=_bar_fmt) if tqdm else None
         write_progress(OUTPUT_DIR, "main_analysis")
         try:
             future_to_task = {
@@ -426,11 +428,13 @@ def main():
         finally:
             if pbar_p1 is not None:
                 pbar_p1.close()
+        logutil.set_bars_active(False)
 
         write_progress(OUTPUT_DIR, "tech_deep_dive")
         n_tech = len(tech_points) + 1  # +1 for summary
+        logutil.set_bars_active(True)
         pbar_p2 = tqdm(total=n_tech, desc="技术深挖", position=0,
-                       dynamic_ncols=True, leave=True) if tqdm else None
+                       dynamic_ncols=True, leave=False, bar_format=_bar_fmt) if tqdm else None
         results["3. 核心技术和实现细节"] = core.generate_tech_deep_dive(
             full_context,
             tech_points,
@@ -443,6 +447,7 @@ def main():
         )
         if pbar_p2 is not None:
             pbar_p2.close()
+        logutil.set_bars_active(False)
         write_paper_report(OUTPUT_DIR, main_title, results)
 
         write_paper_report(OUTPUT_DIR, main_title, results, filename="paper_notes.md")
@@ -468,12 +473,13 @@ def main():
             n_trans = len(core.split_markdown_for_translation(full_text))
         n_fig = len(unique_imgs)
 
+        logutil.set_bars_active(True)
         pbar_eli5 = tqdm(total=n_eli5, desc="ELI5   ", position=0,
-                         dynamic_ncols=True, leave=True) if tqdm and n_eli5 else None
+                         dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_eli5 else None
         pbar_trans = tqdm(total=n_trans, desc="翻译   ", position=1,
-                          dynamic_ncols=True, leave=True) if tqdm and n_trans else None
+                          dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_trans else None
         pbar_fig = tqdm(total=n_fig, desc="图表   ", position=2,
-                        dynamic_ncols=True, leave=True) if tqdm and n_fig else None
+                        dynamic_ncols=True, leave=True, bar_format=_bar_fmt) if tqdm and n_fig else None
 
         phase3_errors = []
         eli5_content = [None]
@@ -559,6 +565,7 @@ def main():
             if pbar is not None:
                 pbar.close()
 
+        logutil.set_bars_active(False)
         shared_executor.shutdown(wait=True)
         write_progress(OUTPUT_DIR, "reports", status="done")
 
