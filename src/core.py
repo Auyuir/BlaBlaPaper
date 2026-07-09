@@ -20,6 +20,16 @@ def _safe_name(value):
     return value.strip("-") or "checkpoint"
 
 
+def _safe_pbar_update(pbar, n=1):
+    """Update progress bar; silently ignore broken-pipe errors from closed terminals."""
+    if pbar is None:
+        return
+    try:
+        pbar.update(n)
+    except (BrokenPipeError, OSError, IOError):
+        pass
+
+
 def _checkpoint_path(checkpoint_dir, name, suffix):
     if not checkpoint_dir:
         return None
@@ -71,8 +81,7 @@ def _run_ordered_parallel(label, items, worker, executor=None, pbar=None):
             results = []
             for item in items:
                 results.append(worker(item))
-                if pbar is not None:
-                    pbar.update(1)
+                _safe_pbar_update(pbar)
             return results
         executor = ThreadPoolExecutor(max_workers=max_workers)
         logutil.log(f"[parallel] {label}: workers={max_workers} tasks={len(items)}", "DEBUG")
@@ -92,8 +101,7 @@ def _run_ordered_parallel(label, items, worker, executor=None, pbar=None):
             except Exception as e:
                 logutil.log(f"[parallel] {label}: task={idx + 1} failed: {e}", "ERROR", stage=label)
                 results[idx] = None
-            if pbar is not None:
-                pbar.update(1)
+            _safe_pbar_update(pbar)
     finally:
         if own_executor:
             executor.shutdown(wait=True)
@@ -266,7 +274,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
     cached = _load_text_checkpoint(checkpoint_dir, "tech_deep_dive")
     if cached is not None:
         if pbar is not None:
-            pbar.update(pbar.total)
+            _safe_pbar_update(pbar, pbar.total)
         return cached
 
     if not innovation_data:
@@ -288,8 +296,7 @@ def generate_tech_deep_dive(context_messages, innovation_data, valid_filenames, 
         )
         summary = utils.correct_image_references(summary, valid_filenames, caption_map)
         _save_text_checkpoint(checkpoint_dir, "tech_deep_dive_00_summary", summary)
-    if pbar is not None:
-        pbar.update(1)
+    _safe_pbar_update(pbar)
     sections.append(f"### 0. 技术架构概览\n\n{summary}\n")
 
     indexed_items = list(enumerate(innovation_data, 1))
@@ -335,7 +342,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
     cached = _load_text_checkpoint(checkpoint_dir, "eli5_notes_body")
     if cached is not None:
         if pbar is not None:
-            pbar.update(pbar.total)
+            _safe_pbar_update(pbar, pbar.total)
         return cached
 
     logutil.log(f"\n--- [通俗解释] 开始生成通俗解释 (Model: {model_name}) ---", "INFO", stage="eli5")
@@ -362,8 +369,7 @@ def analyze_eli5_innovations(context_messages, innovation_data, valid_filenames,
         )
         overall_res = utils.correct_image_references(overall_res, valid_filenames, caption_map)
         _save_text_checkpoint(checkpoint_dir, "eli5_00_overall", overall_res)
-    if pbar is not None:
-        pbar.update(1)
+    _safe_pbar_update(pbar)
     sections.append(f"### 0. 整体创新点通俗解读\n\n{overall_res}\n")
 
     indexed_items = list(enumerate(innovation_data, 1))
@@ -479,7 +485,7 @@ def translate_markdown(full_text, valid_filenames, model_name, checkpoint_dir=No
     cached = _load_text_checkpoint(checkpoint_dir, full_ckpt)
     if cached is not None:
         if pbar is not None:
-            pbar.update(pbar.total)
+            _safe_pbar_update(pbar, pbar.total)
         return cached
 
     # 参考文献章节原文保留：把全文拆为 before / refs / after，仅翻译 before+after。

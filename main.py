@@ -426,10 +426,16 @@ def main():
                     write_paper_report(OUTPUT_DIR, main_title, results)
                     log(f"[parallel] main_analysis: {key} done", "DEBUG", stage="main_analysis")
                 if pbar_p1 is not None:
-                    pbar_p1.update(1)
+                    try:
+                        pbar_p1.update(1)
+                    except (BrokenPipeError, OSError, IOError):
+                        pass
         finally:
             if pbar_p1 is not None:
-                pbar_p1.close()
+                try:
+                    pbar_p1.close()
+                except (BrokenPipeError, OSError, IOError):
+                    pass
         logutil.set_bars_active(False)
 
         # === Phase 2: 深挖 / ELI5 / 翻译 / 图表 四阶段并发 ===
@@ -561,7 +567,10 @@ def main():
 
         for pbar in (pbar_deep, pbar_eli5, pbar_trans, pbar_fig):
             if pbar is not None:
-                pbar.close()
+                try:
+                    pbar.close()
+                except (BrokenPipeError, OSError, IOError):
+                    pass
 
         logutil.set_bars_active(False)
         text_executor.shutdown(wait=True)
