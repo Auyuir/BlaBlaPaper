@@ -309,15 +309,17 @@ def _strip_toggles(tex):
                         break
             else:
                 return None, i
-        # 取 false 分支（第二个花括号块）
-        return branches[1] if len(branches) == 2 else "", i
+        # arxiv toggle 取 true 分支（第一个花括号块），其余取 false（第二个）
+        toggle_name = m.group(1) if m else ""
+        branch_idx = 0 if toggle_name == "arxiv" else 1
+        return branches[branch_idx] if len(branches) == 2 else "", i
 
     out = []
     i = 0
     while i < len(tex):
-        m = re.match(r"\\iftoggle\s*\{[^}]*\}", tex[i:])
+        m = re.match(r"\\iftoggle\s*\{([^}]*)\}", tex[i:])
         if m:
-            replacement, new_i = repl_iftoggle(None, tex, i + m.end())
+            replacement, new_i = repl_iftoggle(m, tex, i + m.end())
             if replacement is not None:
                 out.append(replacement)
                 i = new_i
